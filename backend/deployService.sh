@@ -26,22 +26,22 @@ cp package* dist
 # Step 2
 printf "\n----> Clearing out previous distribution on the target\n"
 ssh -i "$key" ubuntu@$hostname << ENDSSH
-rm -rf services/${service}
-mkdir -p services/${service}
+rm -rf services/${service}/backend
+mkdir -p services/${service}/backend
 ENDSSH
 
 # Step 3
 printf "\n----> Copy the distribution package to the target\n"
-scp -r -i "$key" dist/* ubuntu@$hostname:services/$service
+scp -r -i "$key" dist/* ubuntu@$hostname:services/$service/backend
 
 # Step 4
 printf "\n----> Deploy the service on the target\n"
 ssh -i "$key" ubuntu@$hostname << ENDSSH
-cd services/${service}
+cd services/${service}/backend
 npm install
 pm2 restart ${service}
 ENDSSH
-
+s
 # Step 5
 printf "\n----> Removing local copy of the distribution package\n"
 rm -rf dist
