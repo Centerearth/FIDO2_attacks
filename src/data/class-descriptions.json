@@ -1,0 +1,18 @@
+{
+  "cs111": "CS 111 is a 3-credit course dealing with an introduction to computer science. The course is taught primarily in Python but will cover complex topics such as iteration, recursion, and interpreters.",
+  "cs180": "CS 180 is a 3-credit course with an online section and some in-person sections. Students learn the fundamentals of data science and machine learning through programming in python.",
+  "cs235": "CS 235 is a 3-credit course with an online section and some in-person sections. Students learn the data structures and how to implement them in C++.",
+  "cs260": "CS 260 is a 3-credit course with one online section and one in-person section. Students learn the fundamentals of web programming through HTML, CSS, Javastrap, React, and other related technologies.",
+  "math290": "Math 290 is a 3-credit course to prepare students for transitioning into advanced mathematics. Students learn all about proofs!",
+  "acc200": "Acc 200 is a 3-credit course that provides an introduction to financial accounting.",
+  "acc241": "Acc 241 is a 3-credit course that covers the legal environment of business.",
+  "acc300": "Acc 300 is a 3-credit course that builds on the principles of financial accounting.",
+  "acc301": "Acc 301 is a 3-credit course that continues the study of financial accounting.",
+  "acc310": "Acc 310 is a 3-credit course that focuses on the use of accounting information for internal decision-making.",
+  "acc329": "Acc 329 is a 3-credit course that covers the design and use of accounting information systems.",
+  "acc401": "Acc 401 is a 3-credit course that covers advanced topics in financial accounting.",
+  "acc403": "Acc 403 is a 3-credit course that covers the principles of federal income taxation.",
+  "acc405": "Acc 405 is a 3-credit course that covers the principles and procedures of auditing.",
+  "acc406": "Acc 406 is a 3-credit course that covers accounting for international operations."
+}
+
