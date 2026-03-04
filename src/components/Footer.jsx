@@ -4,8 +4,8 @@ export default function Footer() {
   return (
     <footer className="bg-dark text-white-50">
       <div className="container-fluid">
-        <span className="text-reset">Author: Andrew Nicholls</span>
-        <a className="text-reset" href="https://github.com/Centerearth/startup">
+        <span className="text-reset">Author: ISRL at BYU</span>
+        <a className="text-reset" href="https://github.com/Centerearth/FIDO2_attacks">
           Source
         </a>
       </div>

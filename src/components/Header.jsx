@@ -1,9 +1,8 @@
-import React from 'react';
 import { NavLink } from 'react-router-dom';
 
 export default function Header() {
   return (
-    <header className="container-fluid">
+    <header className="container-fluid bg-dark">
       <nav className="navbar navbar-dark">
         <NavLink className="navbar-brand" to="/">
           Rate My Class
@@ -30,7 +29,6 @@ export default function Header() {
             </NavLink>
           </li>
         </menu>
-        <img className="navbar-pic" src="/Y.png" width="48" height="31" alt="" />
       </nav>
     </header>
   );
