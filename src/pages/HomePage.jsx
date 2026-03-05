@@ -3,6 +3,8 @@ import Layout from '../components/Layout';
 import products from '../data/product-descriptions.json';
 
 export default function HomePage() {
+  const userEmail = localStorage.getItem('userEmail');
+
   function addToCart(product) {
     // Get the existing cart from localStorage, or initialize an empty array
     const cart = JSON.parse(localStorage.getItem('cart')) || [];
@@ -29,24 +31,28 @@ export default function HomePage() {
         <h1>Simply Shopping</h1>
         <p>This is a simple (and nun-functioning) shopping website for FIDO2 research.</p>
 
-        <div className="row mt-4">
-          {products.map((product) => (
-            <div key={product.id} className="col-md-3 mb-4">
-              <div className="card h-100">
-                <div className="card-body text-start">
-                  <h5 className="card-title">{product.name}</h5>
-                  <p className="card-text">
-                    {product.description}
-                  </p>
-                  <p className="card-text fw-bold">${product.price.toFixed(2)}</p>
-                  <button className="btn btn-primary" onClick={() => addToCart(product)}>
-                    Add to Cart
-                  </button>
+        {userEmail ? (
+          <div className="row mt-4">
+            {products.map((product) => (
+              <div key={product.id} className="col-md-3 mb-4">
+                <div className="card h-100">
+                  <div className="card-body text-start">
+                    <h5 className="card-title">{product.name}</h5>
+                    <p className="card-text">
+                      {product.description}
+                    </p>
+                    <p className="card-text fw-bold">${product.price.toFixed(2)}</p>
+                    <button className="btn btn-primary" onClick={() => addToCart(product)}>
+                      Add to Cart
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4">Please log in to view our products.</p>
+        )}
       </div>
     </Layout>
   );
