@@ -50,10 +50,13 @@ export default function LoginPage() {
               <button type="button" className="btn btn-primary w-100 py-2" onClick={loginUser}>
                 Sign in
               </button>
-              <div className="text-center mt-3">
-                <p>
-                  Don't have an account? Set one up <Link to="/sign-up">here!</Link>
+              <div className="text-center mt-3 d-flex justify-content-center align-items-center">
+                <p className="mb-0 me-2">
+                  Don't have an account?
                 </p>
+                <button type="button" className="btn btn-primary" onClick={() => navigate('/sign-up')}>
+                  Sign up
+                </button>
               </div>
             </form>
           </div>

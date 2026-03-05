@@ -17,8 +17,8 @@ export default function SignUpPage() {
 
     try {
       await postAuthRequest('/api/auth/create', { name: userName, email, password });
-      localStorage.setItem('userName', userName);
-      navigate('/login');
+      localStorage.setItem('userEmail', email);
+      navigate('/');
     } catch (error) {
       alert(`⚠ Error: ${error.message}`);
     }
@@ -67,10 +67,13 @@ export default function SignUpPage() {
               <button type="button" className="btn btn-primary w-100 py-2" onClick={createUser}>
                 Register
               </button>
-              <div className="text-center mt-3">
-                <p>
-                  Already have an account? <Link to="/login">Login here!</Link>
+              <div className="text-center mt-3 d-flex justify-content-center align-items-center">
+                <p className="mb-0 me-2">
+                  Already have an account?
                 </p>
+                <button type="button" className="btn btn-primary" onClick={() => navigate('/login')}>
+                  Login
+                </button>
               </div>
             </form>
           </div>
