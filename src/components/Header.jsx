@@ -28,6 +28,9 @@ export default function Header() {
         </NavLink>
         {userEmail ? (
           <>
+            <NavLink className="nav-link text-white-50 px-3" to="/cart">
+              Cart
+            </NavLink>
             <NavLink className="nav-link text-white-50 ms-auto px-3" to="/account">Account</NavLink>
             <button className="btn btn-link nav-link text-white-50 px-3" onClick={handleLogout}>
               Logout
