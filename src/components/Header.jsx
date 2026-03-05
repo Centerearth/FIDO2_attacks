@@ -16,40 +16,28 @@ export default function Header() {
 
   return (
     <header className="container-fluid bg-dark">
-      <nav className="navbar navbar-dark">
+      <nav className="navbar navbar-dark align-items-baseline">
         <NavLink className="navbar-brand" to="/">
           Simply Shopping
         </NavLink>
-        <menu className="navbar-nav">
-          <li className="nav-item">
-            <NavLink className="nav-link" to="/">
-              Home
-            </NavLink>
-          </li>
-          <li className="nav-item">
-            <NavLink className="nav-link" to="/about">
-              About
-            </NavLink>
-          </li>
-          {userEmail ? (
-            <>
-              <li className="nav-item">
-                <span className="nav-link">{userEmail}</span>
-              </li>
-              <li className="nav-item">
-                <button className="btn btn-link nav-link" onClick={handleLogout}>
-                  Logout
-                </button>
-              </li>
-            </>
-          ) : (
-            <li className="nav-item">
-              <NavLink className="nav-link" to="/login">
-                Login
-              </NavLink>
-            </li>
-          )}
-        </menu>
+        <NavLink className="nav-link text-white-50 px-3" to="/">
+          Home
+        </NavLink>
+        <NavLink className="nav-link text-white-50 px-3" to="/about">
+          About
+        </NavLink>
+        {userEmail ? (
+          <>
+            <span className="nav-link text-white-50 ms-auto">{userEmail}</span>
+            <button className="btn btn-link nav-link text-white-50" onClick={handleLogout}>
+              Logout
+            </button>
+          </>
+        ) : (
+          <NavLink className="nav-link text-white-50 ms-auto px-3" to="/login">
+            Login
+          </NavLink>
+        )}
       </nav>
     </header>
   );
