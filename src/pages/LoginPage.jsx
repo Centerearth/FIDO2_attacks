@@ -26,22 +26,22 @@ export default function LoginPage() {
           <div className="form-outline mb-4">
             <input
               type="email"
-              id="email"
+              id="loginEmail"
               className="form-control"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            <label className="form-label" htmlFor="email">Email address</label>
+            <label className="form-label" htmlFor="loginEmail">Email address</label>
           </div>
           <div className="form-outline mb-4">
             <input
               type="password"
-              id="password"
+              id="loginPassword"
               className="form-control"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-            <label className="form-label" htmlFor="password">Password</label>
+            <label className="form-label" htmlFor="loginPassword">Password</label>
           </div>
           <button type="button" className="btn btn-primary" onClick={loginUser}>
             Sign in

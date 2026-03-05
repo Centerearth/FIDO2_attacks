@@ -37,12 +37,12 @@ export default function SignUpPage() {
                   <div className="form-outline flex-fill mb-0">
                     <input
                       type="text"
-                      id="your_name"
+                      id="signUpName"
                       className="form-control"
                       value={userName}
                       onChange={(e) => setUserName(e.target.value)}
                     />
-                    <label className="form-label" htmlFor="your_name">Your Name</label>
+                    <label className="form-label" htmlFor="signUpName">Your Name</label>
                   </div>
                 </div>
                 <div className="d-flex flex-row align-items-center mb-4">
@@ -50,12 +50,12 @@ export default function SignUpPage() {
                   <div className="form-outline flex-fill mb-0">
                     <input
                       type="email"
-                      id="email"
+                      id="signUpEmail"
                       className="form-control"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                     />
-                    <label className="form-label" htmlFor="email">Your Email</label>
+                    <label className="form-label" htmlFor="signUpEmail">Your Email</label>
                   </div>
                 </div>
                 <div className="d-flex flex-row align-items-center mb-4">
@@ -63,12 +63,12 @@ export default function SignUpPage() {
                   <div className="form-outline flex-fill mb-0">
                     <input
                       type="password"
-                      id="password"
+                      id="signUpPassword"
                       className="form-control"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
-                    <label className="form-label" htmlFor="password">Password</label>
+                    <label className="form-label" htmlFor="signUpPassword">Password</label>
                   </div>
                 </div>
                 <div className="d-flex justify-content-center mx-4 mb-3 mb-lg-4">
