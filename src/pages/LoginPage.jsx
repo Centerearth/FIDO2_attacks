@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { postAuthRequest, logout } from '../services/api.js';
+import { postAuthRequest } from '../services/api.js';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -17,8 +17,6 @@ export default function LoginPage() {
       alert(`⚠ Error: ${error.message}`);
     }
   }
-
-
 
   return (
     <Layout>
@@ -47,9 +45,6 @@ export default function LoginPage() {
           </div>
           <button type="button" className="btn btn-primary" onClick={loginUser}>
             Sign in
-          </button>
-          <button type="button" className="btn btn-primary" onClick={logout}>
-            Logout
           </button>
           <div className="text-center">
             <p>

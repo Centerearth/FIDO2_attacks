@@ -25,7 +25,7 @@ export async function postAuthRequest(endpoint, data) {
 
 export async function logout() {
   localStorage.removeItem('userEmail');
-  fetch(`/api/auth/logout`, {
+  await fetch(`/api/auth/logout`, {
     method: 'delete',
-  }).then(() => (window.location.href = '/login'));
+  });
 }
