@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 export default function AboutPage() {
   return (
     <Layout>
-      <div id="about-main">
+      <div id="about-main" className="pt-4">
         <p>
           This project is dedicated to exploring the security of the FIDO2 authentication standard. 
           We have developed a simple shopping website and server that implement FIDO2 to serve as a controlled environment for our research. 
