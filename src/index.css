@@ -62,19 +62,10 @@ footer a {
 }
 
 #about-main {
-  margin-bottom: 12em;
   display: flex;
   flex-direction: column;
   align-items: left;
   justify-content: space-around;
-}
-
-#login-main {
-  margin-bottom:2em;
-}
-
-#index-main {
-  margin-bottom:6em;
 }
 
 @media (max-height: 600px) {
@@ -104,4 +95,3 @@ footer a {
 td {
   max-width: 40vw;
 }
-

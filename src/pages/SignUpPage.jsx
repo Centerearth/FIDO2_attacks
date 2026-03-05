@@ -26,7 +26,7 @@ export default function SignUpPage() {
 
   return (
     <Layout>
-      <div className="col-lg-12 col-xl-11">
+      <div className="col-lg-12 col-xl-11 pt-4">
         <div className="card text-black" style={{ borderRadius: '25px' }}>
           <div className="row justify-content-center">
             <div className="col-md-10 col-lg-6 col-xl-5 order-2 order-lg-1">

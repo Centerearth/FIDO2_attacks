@@ -22,7 +22,7 @@ export default function LoginPage() {
 
   return (
     <Layout>
-      <div id="login-main">
+      <div id="login-main" className="pt-4">
         <h1>Login</h1>
         <form id="myForm">
           <div className="form-outline mb-4">

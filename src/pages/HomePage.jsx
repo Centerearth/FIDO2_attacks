@@ -14,7 +14,7 @@ export default function HomePage() {
 
   return (
     <Layout>
-      <div id="index-main">
+      <div id="index-main" className="pt-4">
         <h1>Welcome!</h1>
         <p>Search for a class below</p>
         <select
