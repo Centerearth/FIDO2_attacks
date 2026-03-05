@@ -1,0 +1,50 @@
+[
+  {
+    "id": "prod_001",
+    "name": "Quantum Widget",
+    "price": 29.99,
+    "description": "A revolutionary widget that operates on quantum principles. Its function is a mystery, but its form is undeniable."
+  },
+  {
+    "id": "prod_002",
+    "name": "Hyper-Encabulator",
+    "price": 199.5,
+    "description": "The latest in retro-futuristic technology. Perfect for synchronizing cardinal grammeters and preventing side-fumbling."
+  },
+  {
+    "id": "prod_003",
+    "name": "Gourmet Dehydrated Water",
+    "price": 15.0,
+    "description": "Just add water! Our artisanal, gluten-free dehydrated water crystals are perfect for the minimalist on the go."
+  },
+  {
+    "id": "prod_004",
+    "name": "Invisible Pet Leash",
+    "price": 25.0,
+    "description": "Guaranteed to work on all invisible pets. Comes with a lifetime warranty against tangling and visibility."
+  },
+  {
+    "id": "prod_005",
+    "name": "Anti-Gravity Paperweight",
+    "price": 42.0,
+    "description": "It doesn't hold papers down, it encourages them to achieve their dreams. A must-have for any aspiring desk."
+  },
+  {
+    "id": "prod_006",
+    "name": "Sentient Toaster",
+    "price": 85.75,
+    "description": "It makes toast, but it also has opinions. Get ready for philosophical breakfast conversations."
+  },
+  {
+    "id": "prod_007",
+    "name": "Acoustic WiFi Router",
+    "price": 78.99,
+    "description": "Broadcasts your internet connection through a series of soothing, yet data-rich, whale songs. Dial-up speeds may vary."
+  },
+  {
+    "id": "prod_008",
+    "name": "Bottled Air - Collector's Edition",
+    "price": 50.0,
+    "description": "Sourced from the pristine, unpolluted air of our state-of-the-art laboratory. A refreshing experience."
+  }
+]
