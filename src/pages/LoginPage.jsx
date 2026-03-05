@@ -20,38 +20,44 @@ export default function LoginPage() {
 
   return (
     <Layout>
-      <div id="login-main" className="pt-4">
-        <h1>Login</h1>
-        <form id="myForm">
-          <div className="form-outline mb-4">
-            <input
-              type="email"
-              id="loginEmail"
-              className="form-control"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <label className="form-label" htmlFor="loginEmail">Email address</label>
+      <div id="login-main" className="pt-5">
+        <div className="card shadow-sm" style={{ width: '25rem' }}>
+          <div className="card-body p-4">
+            <h1 className="card-title text-center mb-4">Login</h1>
+            <form id="myForm">
+              <div className="form-floating mb-3">
+                <input
+                  type="email"
+                  id="loginEmail"
+                  className="form-control"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
+                />
+                <label htmlFor="loginEmail">Email address</label>
+              </div>
+              <div className="form-floating mb-4">
+                <input
+                  type="password"
+                  id="loginPassword"
+                  className="form-control"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                />
+                <label htmlFor="loginPassword">Password</label>
+              </div>
+              <button type="button" className="btn btn-primary w-100 py-2" onClick={loginUser}>
+                Sign in
+              </button>
+              <div className="text-center mt-3">
+                <p>
+                  Don't have an account? Set one up <Link to="/sign-up">here!</Link>
+                </p>
+              </div>
+            </form>
           </div>
-          <div className="form-outline mb-4">
-            <input
-              type="password"
-              id="loginPassword"
-              className="form-control"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <label className="form-label" htmlFor="loginPassword">Password</label>
-          </div>
-          <button type="button" className="btn btn-primary" onClick={loginUser}>
-            Sign in
-          </button>
-          <div className="text-center">
-            <p>
-              Don't have an account? Set one up <Link to="/sign-up">here!</Link>
-            </p>
-          </div>
-        </form>
+        </div>
       </div>
     </Layout>
   );

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { postAuthRequest } from '../services/api.js';
 
@@ -26,61 +26,53 @@ export default function SignUpPage() {
 
   return (
     <Layout>
-      <div className="col-lg-12 col-xl-11 pt-4">
-        <div className="card text-black" style={{ borderRadius: '25px' }}>
-          <div className="row justify-content-center">
-            <div className="col-md-10 col-lg-6 col-xl-5 order-2 order-lg-1">
-              <p className="text-center h1 fw-bold mb-5 mx-1 mx-md-4 mt-4">Sign up</p>
-              <form className="mx-1 mx-md-4">
-                <div className="d-flex flex-row align-items-center mb-4">
-                  <i className="fas fa-user fa-lg me-3 fa-fw"></i>
-                  <div className="form-outline flex-fill mb-0">
-                    <input
-                      type="text"
-                      id="signUpName"
-                      className="form-control"
-                      value={userName}
-                      onChange={(e) => setUserName(e.target.value)}
-                    />
-                    <label className="form-label" htmlFor="signUpName">Your Name</label>
-                  </div>
-                </div>
-                <div className="d-flex flex-row align-items-center mb-4">
-                  <i className="fas fa-envelope fa-lg me-3 fa-fw"></i>
-                  <div className="form-outline flex-fill mb-0">
-                    <input
-                      type="email"
-                      id="signUpEmail"
-                      className="form-control"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
-                    <label className="form-label" htmlFor="signUpEmail">Your Email</label>
-                  </div>
-                </div>
-                <div className="d-flex flex-row align-items-center mb-4">
-                  <i className="fas fa-lock fa-lg me-3 fa-fw"></i>
-                  <div className="form-outline flex-fill mb-0">
-                    <input
-                      type="password"
-                      id="signUpPassword"
-                      className="form-control"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                    <label className="form-label" htmlFor="signUpPassword">Password</label>
-                  </div>
-                </div>
-                <div className="d-flex justify-content-center mx-4 mb-3 mb-lg-4">
-                  <button type="button" className="btn btn-primary btn-lg" onClick={createUser}>
-                    Register
-                  </button>
-                </div>
-              </form>
-            </div>
-            <div className="col-md-10 col-lg-6 col-xl-7 d-flex align-items-center order-1 order-lg-2">
-              <img src="/Y2.png" className="img-fluid" alt="Sample image" />
-            </div>
+      <div id="signup-main" className="pt-5">
+        <div className="card shadow-sm" style={{ width: '25rem' }}>
+          <div className="card-body p-4">
+            <h1 className="card-title text-center mb-4">Sign Up</h1>
+            <form>
+              <div className="form-floating mb-3">
+                <input
+                  type="text"
+                  id="signUpName"
+                  className="form-control"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  placeholder="John Doe"
+                />
+                <label htmlFor="signUpName">Your Name</label>
+              </div>
+              <div className="form-floating mb-3">
+                <input
+                  type="email"
+                  id="signUpEmail"
+                  className="form-control"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
+                />
+                <label htmlFor="signUpEmail">Email address</label>
+              </div>
+              <div className="form-floating mb-4">
+                <input
+                  type="password"
+                  id="signUpPassword"
+                  className="form-control"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                />
+                <label htmlFor="signUpPassword">Password</label>
+              </div>
+              <button type="button" className="btn btn-primary w-100 py-2" onClick={createUser}>
+                Register
+              </button>
+              <div className="text-center mt-3">
+                <p>
+                  Already have an account? <Link to="/login">Login here!</Link>
+                </p>
+              </div>
+            </form>
           </div>
         </div>
       </div>

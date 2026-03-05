@@ -46,12 +46,15 @@ export default function Header() {
         </NavLink>
         {userEmail ? (
           <>
-            <NavLink className="nav-link text-white-50 px-3" to="/cart">
+            <NavLink className="nav-link text-white-50 ms-auto px-3 position-relative" to="/cart">
               Cart
+              {itemCount > 0 && (
+                <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                  {itemCount}
+                  <span className="visually-hidden">items in cart</span>
+                </span>
+              )}
             </NavLink>
-            <span className="nav-link text-white-50 ms-auto border rounded px-2">
-              Number of items: {itemCount}
-            </span>
             <NavLink className="nav-link text-white-50 px-3" to="/account">Account</NavLink>
             <button className="btn btn-link nav-link text-white-50 px-3" onClick={handleLogout}>
               Logout

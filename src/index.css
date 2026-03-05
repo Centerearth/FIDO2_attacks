@@ -1,4 +1,5 @@
 body {
+  background-color: #f8f9fa;
   display: flex;
   flex-direction: column;
   min-width: 375px;
@@ -24,6 +25,15 @@ footer {
 
 .navbar-brand {
   padding-left: 0.3em;
+}
+
+.product-card {
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.product-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .button-container {
