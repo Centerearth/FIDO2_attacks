@@ -26,8 +26,8 @@ export default function HomePage() {
   return (
     <Layout>
       <div id="index-main" className="pt-4 w-100">
-        <h1>Welcome!</h1>
-        <p>This is a simple shopping website for FIDO2 research.</p>
+        <h1>Simply Shopping</h1>
+        <p>This is a simple (and nun-functioning) shopping website for FIDO2 research.</p>
 
         <div className="row mt-4">
           {products.map((product) => (
