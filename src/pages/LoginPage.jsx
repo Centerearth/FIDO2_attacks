@@ -12,7 +12,7 @@ export default function LoginPage() {
     try {
       await postAuthRequest('/api/auth/login', { email, password });
       localStorage.setItem('userEmail', email);
-      navigate('/review-maker');
+      navigate('/');
     } catch (error) {
       alert(`⚠ Error: ${error.message}`);
     }

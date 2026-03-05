@@ -3,8 +3,6 @@ import HomePage from './pages/HomePage';
 import AboutPage from './pages/AboutPage';
 import LoginPage from './pages/LoginPage';
 import SignUpPage from './pages/SignUpPage';
-import ReviewMakerPage from './pages/ReviewMakerPage';
-import ClassReviewPage from './pages/ClassReviewPage';
 
 const router = createBrowserRouter([
   {
@@ -22,14 +20,6 @@ const router = createBrowserRouter([
   {
     path: '/sign-up',
     element: <SignUpPage />,
-  },
-  {
-    path: '/review-maker',
-    element: <ReviewMakerPage />,
-  },
-  {
-    path: '/:classNum',
-    element: <ClassReviewPage />,
   },
 ]);
 

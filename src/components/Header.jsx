@@ -5,7 +5,7 @@ export default function Header() {
     <header className="container-fluid bg-dark">
       <nav className="navbar navbar-dark">
         <NavLink className="navbar-brand" to="/">
-          Rate My Class
+          Simply Shopping
         </NavLink>
         <menu className="navbar-nav">
           <li className="nav-item">
@@ -21,11 +21,6 @@ export default function Header() {
           <li className="nav-item">
             <NavLink className="nav-link" to="/login">
               Login
-            </NavLink>
-          </li>
-          <li className="nav-item">
-            <NavLink className="nav-link" to="/review-maker">
-              Post A Review
             </NavLink>
           </li>
         </menu>

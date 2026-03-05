@@ -29,12 +29,3 @@ export async function logout() {
     method: 'delete',
   }).then(() => (window.location.href = '/login'));
 }
-
-export async function postReview(classNum, review) {
-  const response = await fetch(`/api/review/${classNum}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(review),
-  });
-  return await response.json();
-}
