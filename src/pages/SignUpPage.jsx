@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { postAuthRequest } from '../services/api.js';
 
 export default function SignUpPage() {
+  const navigate = useNavigate();
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,7 +18,7 @@ export default function SignUpPage() {
     try {
       await postAuthRequest('/api/auth/create', { name: userName, email, password });
       localStorage.setItem('userName', userName);
-      window.location.href = '/login';
+      navigate('/login');
     } catch (error) {
       alert(`⚠ Error: ${error.message}`);
     }

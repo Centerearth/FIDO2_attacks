@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { postAuthRequest, logout } from '../services/api.js';
 
 export default function LoginPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -11,7 +12,7 @@ export default function LoginPage() {
     try {
       await postAuthRequest('/api/auth/login', { email, password });
       localStorage.setItem('userEmail', email);
-      window.location.href = '/review-maker';
+      navigate('/review-maker');
     } catch (error) {
       alert(`⚠ Error: ${error.message}`);
     }

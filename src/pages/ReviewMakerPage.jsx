@@ -20,8 +20,7 @@ export default function ReviewMakerPage() {
 
     return (
         <Layout>
-            <div className="col-lg-12 col-xl-11">
-                <hr style={{ visibility: 'hidden' }} />
+            <div className="col-lg-12 col-xl-11 pt-4">
                 <form id="reviewForm">
                     <div className="form-group">
                         <label htmlFor="nameId">First Name</label>
