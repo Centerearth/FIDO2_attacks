@@ -30,7 +30,10 @@ export default function SignUpPage() {
         <div className="card shadow-sm" style={{ width: '25rem' }}>
           <div className="card-body p-4">
             <h1 className="card-title text-center mb-4">Sign Up</h1>
-            <form>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              createUser();
+            }}>
               <div className="form-floating mb-3">
                 <input
                   type="text"
@@ -64,7 +67,7 @@ export default function SignUpPage() {
                 />
                 <label htmlFor="signUpPassword">Password</label>
               </div>
-              <button type="button" className="btn btn-primary w-100 py-2" onClick={createUser}>
+              <button type="submit" className="btn btn-primary w-100 py-2">
                 Register
               </button>
               <div className="text-center mt-3 d-flex justify-content-center align-items-center">
