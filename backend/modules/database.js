@@ -38,8 +38,13 @@ async function createUser(name, email, password) {
   return user;
 }
 
+function deleteUser(email) {
+  return userCollection.deleteOne({ email: String(email) });
+}
+
 module.exports = {
   getUser,
   getUserByToken,
   createUser,
+  deleteUser,
 };

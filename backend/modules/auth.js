@@ -74,7 +74,13 @@ secureApiRouter.use(async (req, res, next) => {
 });
 
 secureApiRouter.get('/auth/me', (req, res) => {
-  res.send({ email: req.user.email });
+  res.send({ email: req.user.email, name: req.user.name });
+});
+
+secureApiRouter.delete('/auth/account', async (req, res) => {
+  await DB.deleteUser(req.user.email);
+  res.clearCookie(authCookieName);
+  res.status(204).end();
 });
 
 

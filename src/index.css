@@ -55,6 +55,11 @@ footer {
   text-align: left;
 }
 
+#account-main {
+  width: 100%;
+  text-align: left;
+}
+
 @media (max-height: 600px) {
   header {
     display: none;
