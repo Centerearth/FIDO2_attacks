@@ -11,7 +11,6 @@ export default function LoginPage() {
   async function loginUser() {
     try {
       await postAuthRequest('/api/auth/login', { email, password });
-      localStorage.setItem('userEmail', email);
       navigate('/');
     } catch (error) {
       alert(`⚠ Error: ${error.message}`);

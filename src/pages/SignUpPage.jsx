@@ -10,14 +10,13 @@ export default function SignUpPage() {
   const [password, setPassword] = useState('');
 
   async function createUser() {
-    if (!password) {
-      alert('⚠ Error: Password cannot be empty');
+    if (!password || password.length < 8) {
+      alert('⚠ Error: Password must be at least 8 characters long');
       return;
     }
 
     try {
       await postAuthRequest('/api/auth/create', { name: userName, email, password });
-      localStorage.setItem('userEmail', email);
       navigate('/');
     } catch (error) {
       alert(`⚠ Error: ${error.message}`);

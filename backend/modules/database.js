@@ -10,17 +10,17 @@ if (!userName) {
   throw Error('Database not configured. Set environment variables');
 }
 
-const url = `mongodb+srv://${userName}:${password}@${hostname}`;
+const url = `mongodb+srv://${encodeURIComponent(userName)}:${encodeURIComponent(password)}@${hostname}`;
 
 const client = new MongoClient(url);
 const userCollection = client.db('startup').collection('user');
 
 function getUser(email) {
-  return userCollection.findOne({ email: email });
+  return userCollection.findOne({ email: String(email) });
 }
 
 function getUserByToken(token) {
-  return userCollection.findOne({ token: token });
+  return userCollection.findOne({ token: String(token) });
 }
 
 async function createUser(name, email, password) {

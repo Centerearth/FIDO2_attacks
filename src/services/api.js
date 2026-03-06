@@ -14,6 +14,11 @@ export async function postAuthRequest(endpoint, data) {
     },
   });
 
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    throw new Error(`Server returned non-JSON response: ${response.status} ${response.statusText}`);
+  }
+
   const body = await response.json();
 
   if (response.status !== 200) {
@@ -24,7 +29,6 @@ export async function postAuthRequest(endpoint, data) {
 }
 
 export async function logout() {
-  localStorage.removeItem('userEmail');
   await fetch(`/api/auth/logout`, {
     method: 'delete',
   });

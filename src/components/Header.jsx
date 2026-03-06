@@ -4,10 +4,20 @@ import { logout } from '../services/api.js';
 
 export default function Header() {
   const navigate = useNavigate();
-  const userEmail = localStorage.getItem('userEmail');
+  const [userEmail, setUserEmail] = useState(null);
   const [itemCount, setItemCount] = useState(0);
 
   useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => {
+        if (res.ok) return res.json();
+        return null;
+      })
+      .then((data) => {
+        if (data && data.email) setUserEmail(data.email);
+      })
+      .catch(() => setUserEmail(null));
+
     const calculateItemCount = () => {
       const cart = JSON.parse(localStorage.getItem('cart')) || [];
       const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);

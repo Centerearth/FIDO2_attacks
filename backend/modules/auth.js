@@ -66,10 +66,15 @@ secureApiRouter.use(async (req, res, next) => {
   const authToken = req.cookies[authCookieName];
   const user = await DB.getUserByToken(authToken);
   if (user) {
+    req.user = user;
     next();
   } else {
     res.status(401).send({ msg: 'Unauthorized' });
   }
+});
+
+secureApiRouter.get('/auth/me', (req, res) => {
+  res.send({ email: req.user.email });
 });
 
 
