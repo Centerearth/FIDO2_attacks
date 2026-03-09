@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const authRouter = require('./modules/auth.js').router;
-const reviewsRouter = require('./modules/reviews.js');
 const { secureApiRouter } = require('./modules/auth.js');
 
 const app = express();
@@ -17,7 +16,6 @@ app.use(express.static('dist'));
 
 app.use('/api', authRouter);
 app.use('/api', secureApiRouter);
-app.use('/api', reviewsRouter);
 
 
 // Default error handler
