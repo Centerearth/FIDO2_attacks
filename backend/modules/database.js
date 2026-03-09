@@ -24,6 +24,7 @@ function getUserByToken(token) {
 }
 
 async function createUser(name, email, password) {
+  console.log(`[DB] Creating user record for ${email}`);
   // Hash the password before we insert it into the database
   const passwordHash = await bcrypt.hash(password, 10);
 

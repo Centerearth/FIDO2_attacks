@@ -6,6 +6,7 @@
  * @throws {Error} - Throws an error if the network response is not OK.
  */
 export async function postAuthRequest(endpoint, data) {
+  console.log(`[API] POST ${endpoint}`, data);
   const response = await fetch(endpoint, {
     method: 'post',
     body: JSON.stringify(data),

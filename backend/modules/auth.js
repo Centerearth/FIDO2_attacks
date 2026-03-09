@@ -14,10 +14,13 @@ router.use(cookieParser());
 
 // CreateAuth token for a new user
 router.post('/auth/create', async (req, res) => {
+  console.log(`[AUTH] Creating user: ${req.body.email}`);
   if (await DB.getUser(req.body.email)) {
+    console.log(`[AUTH] User creation failed: ${req.body.email} already exists`);
     res.status(409).send({ msg: 'Existing user' });
   } else {
     const user = await DB.createUser(req.body.name, req.body.email, req.body.password);
+    console.log(`[AUTH] User created: ${req.body.email}`);
 
     // Set the cookie
     setAuthCookie(res, user.token);
@@ -30,19 +33,23 @@ router.post('/auth/create', async (req, res) => {
 
 // GetAuth token for the provided credentials
 router.post('/auth/login', async (req, res) => {
+  console.log(`[AUTH] Login attempt: ${req.body.email}`);
   const user = await DB.getUser(req.body.email);
   if (user) {
     if (await bcrypt.compare(req.body.password, user.password)) {
+      console.log(`[AUTH] Login successful: ${req.body.email}`);
       setAuthCookie(res, user.token);
       res.send({ id: user._id });
       return;
     }
   }
+  console.log(`[AUTH] Login failed: ${req.body.email}`);
   res.status(401).send({ msg: 'Unauthorized' });
 });
 
 // DeleteAuth token if stored in cookie
 router.delete('/auth/logout', (_req, res) => {
+  console.log('[AUTH] Logout request');
   res.clearCookie(authCookieName);
   res.status(204).end();
 });
@@ -69,6 +76,7 @@ secureApiRouter.use(async (req, res, next) => {
     req.user = user;
     next();
   } else {
+    console.log(`[AUTH] Unauthorized access attempt to ${req.originalUrl}`);
     res.status(401).send({ msg: 'Unauthorized' });
   }
 });
