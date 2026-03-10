@@ -1,7 +1,7 @@
 {
   "name": "fido2",
   "version": "1.0.0",
-  "description": "This demonstrates using WebSocket for peer to peer communication.",
+  "description": "",
   "main": "backend/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
