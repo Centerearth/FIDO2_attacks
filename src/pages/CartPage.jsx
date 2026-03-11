@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 
 export default function CartPage() {
@@ -10,9 +10,7 @@ export default function CartPage() {
     setCartItems(items);
   }, []);
 
-  const calculateTotal = () => {
-    return cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
-  };
+  const cartTotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
 
   const handleCheckout = () => {
     localStorage.removeItem('cart');
@@ -48,7 +46,7 @@ export default function CartPage() {
               <tfoot>
                 <tr>
                   <td colSpan="3"></td>
-                  <td className="text-end fw-bold">${calculateTotal().toFixed(2)}</td>
+                  <td className="text-end fw-bold">${cartTotal.toFixed(2)}</td>
                 </tr>
               </tfoot>
             </table>

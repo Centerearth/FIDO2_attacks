@@ -1,31 +1,28 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
+import { getUser, deleteAccount as deleteAccountApi } from '../services/api';
 
 export default function AccountPage() {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    fetch('/api/auth/me')
-      .then((res) => {
-        if (res.ok) return res.json();
-        return null;
-      })
-      .then((data) => {
-        setUser(data);
-      })
-      .catch(() => setUser(null));
+    async function loadUser() {
+      try {
+        const data = await getUser();
+        if (data) setUser(data);
+      } catch { /* ignore error, user remains null */ }
+    }
+    loadUser();
   }, []);
 
   async function deleteAccount() {
     if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
 
     try {
-      const res = await fetch('/api/auth/account', { method: 'DELETE' });
-      if (res.ok) {
-        window.location.href = '/';
-      } else {
-        alert('Failed to delete account');
-      }
+      await deleteAccountApi();
+      navigate('/');
     } catch (e) {
       alert(e.message);
     }

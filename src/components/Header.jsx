@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { logout } from '../services/api.js';
+import { logout, getUser } from '../services/api.js';
 
 export default function Header() {
   const navigate = useNavigate();
@@ -8,12 +8,7 @@ export default function Header() {
   const [itemCount, setItemCount] = useState(0);
 
   useEffect(() => {
-    fetch('/api/auth/me')
-      .then((res) => {
-        if (res.ok) return res.json();
-        return null;
-      })
-      .then((data) => {
+    getUser().then((data) => {
         if (data && data.email) setUserEmail(data.email);
       })
       .catch(() => setUserEmail(null));
@@ -65,7 +60,9 @@ export default function Header() {
                 </span>
               )}
             </NavLink>
-            <NavLink className="nav-link text-white-50 px-3" to="/account">Account</NavLink>
+            <NavLink className="nav-link text-white-50 px-3" to="/account">
+              Account
+            </NavLink>
             <button className="btn btn-link nav-link text-white-50 px-3" onClick={handleLogout}>
               Logout
             </button>

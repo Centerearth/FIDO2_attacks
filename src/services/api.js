@@ -5,6 +5,9 @@
  * @returns {Promise<object>} - The JSON response body from the server.
  * @throws {Error} - Throws an error if the network response is not OK.
  */
+
+//the middleman
+
 export async function postAuthRequest(endpoint, data) {
   console.log(`[API] POST ${endpoint}`, data);
   const response = await fetch(endpoint, {
@@ -33,4 +36,19 @@ export async function logout() {
   await fetch(`/api/auth/logout`, {
     method: 'delete',
   });
+}
+
+export async function getUser() {
+  const response = await fetch('/api/auth/me');
+  if (response.ok) {
+    return response.json();
+  }
+  return null;
+}
+
+export async function deleteAccount() {
+  const response = await fetch('/api/auth/account', { method: 'DELETE' });
+  if (!response.ok) {
+    throw new Error('Failed to delete account');
+  }
 }

@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import products from '../data/product-descriptions.json';
+import { getUser } from '../services/api';
 
 export default function HomePage() {
   const [userEmail, setUserEmail] = useState(null);
 
   useEffect(() => {
-    fetch('/api/auth/me')
-      .then((res) => {
-        if (res.ok) return res.json();
-        return null;
-      })
-      .then((data) => {
+    getUser().then((data) => {
         if (data && data.email) setUserEmail(data.email);
       })
       .catch(() => setUserEmail(null));
