@@ -11,7 +11,7 @@
 export async function postAuthRequest(endpoint, data) {
   console.log(`[API] POST ${endpoint}`, data);
   const response = await fetch(endpoint, {
-    method: 'post',
+    method: 'POST',
     body: JSON.stringify(data),
     headers: {
       'Content-type': 'application/json; charset=UTF-8',
@@ -25,7 +25,7 @@ export async function postAuthRequest(endpoint, data) {
 
   const body = await response.json();
 
-  if (response.status !== 200) {
+  if (!response.ok) {
     throw new Error(body.message || body.msg || 'An unknown error occurred');
   }
 
@@ -34,7 +34,7 @@ export async function postAuthRequest(endpoint, data) {
 
 export async function logout() {
   await fetch(`/api/auth/logout`, {
-    method: 'delete',
+    method: 'DELETE',
   });
 }
 
@@ -43,12 +43,22 @@ export async function getUser() {
   if (response.ok) {
     return response.json();
   }
-  return null;
+  // If 401/403, the user is simply not logged in.
+  if (response.status === 401 || response.status === 403) {
+    return null;
+  }
+  // If 500 or other error, throw so the app knows there is a problem
+  throw new Error(`Failed to fetch user: ${response.status} ${response.statusText}`);
 }
 
 export async function deleteAccount() {
   const response = await fetch('/api/auth/account', { method: 'DELETE' });
   if (!response.ok) {
-    throw new Error('Failed to delete account');
+    let message = 'Failed to delete account';
+    try {
+      const body = await response.json();
+      message = body.message || body.msg || message;
+    } catch (e) { /* ignore non-JSON error responses */ }
+    throw new Error(message);
   }
 }

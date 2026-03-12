@@ -1,4 +1,3 @@
-import React from 'react';
 import Layout from '../components/Layout';
 import products from '../data/product-descriptions.json';
 import { useAuth } from '../context/AuthContext';
