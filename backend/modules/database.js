@@ -14,6 +14,7 @@ const url = `mongodb+srv://${encodeURIComponent(userName)}:${encodeURIComponent(
 
 const client = new MongoClient(url);
 const userCollection = client.db(process.env.DB_NAME || 'FIDO2').collection('user');
+const passkeyCollection = client.db(process.env.DB_NAME || 'FIDO2').collection('passkeys');
 
 function getUser(email) {
   return userCollection.findOne({ email: String(email) });
@@ -39,8 +40,42 @@ async function createUser(name, email, password) {
   return user;
 }
 
+async function createPasskey(email, passkeyInfo) {
+  console.log(`[DB] Creating passkey record for ${email}`);
+  const passkey = {
+    email: email,
+    credentialID: passkeyInfo.credentialID,
+    publicKey: passkeyInfo.publicKey,
+    counter: passkeyInfo.counter,
+    transports: passkeyInfo.transports,
+    created_at: new Date(),
+  };
+  await passkeyCollection.insertOne(passkey);
+  return passkey;
+}
+
+function getPasskey(credentialID) {
+  return passkeyCollection.findOne({ credentialID: String(credentialID) });
+}
+
+function getUserPasskeys(email) {
+  return passkeyCollection.find({ email: String(email) }).toArray();
+}
+
+async function updatePasskeyCounter(credentialID, newCounter) {
+  await passkeyCollection.updateOne(
+    { credentialID: String(credentialID) },
+    { $set: { counter: newCounter } }
+  );
+}
+
 function deleteUser(email) {
+  deletePasskeys(email);
   return userCollection.deleteOne({ email: String(email) });
+}
+
+function deletePasskeys(email) {
+  return passkeyCollection.deleteMany({ email: String(email) });
 }
 
 async function refreshUserToken(email) {
@@ -57,5 +92,9 @@ module.exports = {
   getUserByToken,
   createUser,
   deleteUser,
+  createPasskey,
+  getPasskey,
+  getUserPasskeys,
+  updatePasskeyCounter,
   refreshUserToken,
 };

@@ -28,6 +28,10 @@ export default function AccountPage() {
     }
   }
 
+  async function addPasskey() {
+    alert('Passkey functionality is not implemented yet.');
+  }
+
   return (
     <Layout>
       <div id="account-main" className="pt-4">
@@ -36,6 +40,11 @@ export default function AccountPage() {
           <div className="mt-4 text-start">
             <p className="fs-5"><strong>Name:</strong> {user.name}</p>
             <p className="fs-5"><strong>Email:</strong> {user.email}</p>
+            <div className="mt-4">
+              <button className="btn btn-primary mt-3" onClick={addPasskey}>
+                Add passkey
+              </button>
+            </div>
             <button className="btn btn-danger mt-3" onClick={deleteAccount}>
               Delete Account
             </button>
