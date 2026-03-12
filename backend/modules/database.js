@@ -43,9 +43,19 @@ function deleteUser(email) {
   return userCollection.deleteOne({ email: String(email) });
 }
 
+async function refreshUserToken(email) {
+  const newToken = uuid.v4();
+  await userCollection.updateOne(
+    { email: String(email) },
+    { $set: { token: newToken } }
+  );
+  return newToken;
+}
+
 module.exports = {
   getUser,
   getUserByToken,
   createUser,
   deleteUser,
+  refreshUserToken,
 };

@@ -36,7 +36,8 @@ router.post('/auth/login', async (req, res) => {
   if (user) {
     if (await bcrypt.compare(req.body.password, user.password)) {
       console.log(`[AUTH] Login successful: ${req.body.email}`);
-      setAuthCookie(res, user.token);
+      const newToken = await DB.refreshUserToken(user.email);
+      setAuthCookie(res, newToken);
       res.send({ email: user.email, name: user.name });
       return;
     }
@@ -53,7 +54,7 @@ router.delete('/auth/logout', (_req, res) => {
 });
 
 // secureApiRouter verifies credentials for endpoints
-var secureApiRouter = express.Router();
+const secureApiRouter = express.Router();
 
 secureApiRouter.use(async (req, res, next) => {
   const authToken = req.cookies[authCookieName];
