@@ -13,7 +13,7 @@ if (!userName) {
 const url = `mongodb+srv://${encodeURIComponent(userName)}:${encodeURIComponent(password)}@${hostname}`;
 
 const client = new MongoClient(url);
-const userCollection = client.db('startup').collection('user');
+const userCollection = client.db(process.env.DB_NAME || 'FIDO2').collection('user');
 
 function getUser(email) {
   return userCollection.findOne({ email: String(email) });
