@@ -6,9 +6,6 @@ const DB = require('./database.js');
 const authCookieName = 'token';
 const router = express.Router();
 
-// JSON body parsing using built-in middleware
-router.use(express.json());
-
 // Use the cookie parser middleware for tracking authentication tokens
 router.use(cookieParser());
 
@@ -26,7 +23,8 @@ router.post('/auth/create', async (req, res) => {
     setAuthCookie(res, user.token);
 
     res.send({
-      id: user._id,
+      email: user.email,
+      name: user.name,
     });
   }
 });
@@ -39,7 +37,7 @@ router.post('/auth/login', async (req, res) => {
     if (await bcrypt.compare(req.body.password, user.password)) {
       console.log(`[AUTH] Login successful: ${req.body.email}`);
       setAuthCookie(res, user.token);
-      res.send({ id: user._id });
+      res.send({ email: user.email, name: user.name });
       return;
     }
   }
@@ -56,7 +54,6 @@ router.delete('/auth/logout', (_req, res) => {
 
 // secureApiRouter verifies credentials for endpoints
 var secureApiRouter = express.Router();
-router.use(secureApiRouter);
 
 secureApiRouter.use(async (req, res, next) => {
   const authToken = req.cookies[authCookieName];

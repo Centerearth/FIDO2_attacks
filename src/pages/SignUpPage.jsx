@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { postAuthRequest } from '../services/api.js';
+import { useAuth } from '../context/AuthContext';
 
 export default function SignUpPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,7 +18,8 @@ export default function SignUpPage() {
     }
 
     try {
-      await postAuthRequest('/api/auth/create', { name: userName, email, password });
+      const userData = await postAuthRequest('/api/auth/create', { name: userName, email, password });
+      login(userData);
       navigate('/');
     } catch (error) {
       alert(`⚠ Error: ${error.message}`);

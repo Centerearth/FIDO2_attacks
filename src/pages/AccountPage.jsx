@@ -32,7 +32,7 @@ export default function AccountPage() {
     <Layout>
       <div id="account-main" className="pt-4">
         <h1>Account</h1>
-        {user && (
+        {user ? (
           <div className="mt-4 text-start">
             <p className="fs-5"><strong>Name:</strong> {user.name}</p>
             <p className="fs-5"><strong>Email:</strong> {user.email}</p>
@@ -40,6 +40,8 @@ export default function AccountPage() {
               Delete Account
             </button>
           </div>
+        ) : (
+          <p className="mt-4">Please log in to view your account details.</p>
         )}
       </div>
     </Layout>

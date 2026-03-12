@@ -1,17 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Layout from '../components/Layout';
 import products from '../data/product-descriptions.json';
-import { getUser } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function HomePage() {
-  const [userEmail, setUserEmail] = useState(null);
-
-  useEffect(() => {
-    getUser().then((data) => {
-        if (data && data.email) setUserEmail(data.email);
-      })
-      .catch(() => setUserEmail(null));
-  }, []);
+  const { user, isAuthLoading } = useAuth();
 
   function addToCart(product) {
     // Get the existing cart from localStorage, or initialize an empty array
@@ -39,7 +32,9 @@ export default function HomePage() {
         <h1>Simply Shopping</h1>
         <p>This is a simple (and nun-functioning) shopping website for FIDO2 research.</p>
 
-        {userEmail ? (
+        {isAuthLoading ? (
+          <p className="mt-4">Loading...</p>
+        ) : user ? (
           <div className="row mt-4">
             {products.map((product) => (
               <div key={product.id} className="col-md-3 mb-4">

@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
+import { useAuth } from '../context/AuthContext';
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState([]);
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Load cart items from localStorage on component mount
@@ -13,6 +17,12 @@ export default function CartPage() {
   const cartTotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
 
   const handleCheckout = () => {
+    if (!user) {
+      alert('You must be logged in to check out.');
+      navigate('/login');
+      return;
+    }
+
     localStorage.removeItem('cart');
     setCartItems([]);
     window.dispatchEvent(new Event('cartUpdated'));

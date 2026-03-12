@@ -26,7 +26,7 @@ export async function postAuthRequest(endpoint, data) {
   const body = await response.json();
 
   if (response.status !== 200) {
-    throw new Error(body.msg || 'An unknown error occurred');
+    throw new Error(body.message || body.msg || 'An unknown error occurred');
   }
 
   return body;

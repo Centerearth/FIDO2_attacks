@@ -1,18 +1,13 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { logout, getUser } from '../services/api.js';
+import { useAuth } from '../context/AuthContext';
 
 export default function Header() {
   const navigate = useNavigate();
-  const [userEmail, setUserEmail] = useState(null);
+  const { user, logout } = useAuth();
   const [itemCount, setItemCount] = useState(0);
 
   useEffect(() => {
-    getUser().then((data) => {
-        if (data && data.email) setUserEmail(data.email);
-      })
-      .catch(() => setUserEmail(null));
-
     const calculateItemCount = () => {
       const cart = JSON.parse(localStorage.getItem('cart')) || [];
       const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -49,7 +44,7 @@ export default function Header() {
         <NavLink className="nav-link text-white-50 px-3" to="/about">
           About
         </NavLink>
-        {userEmail ? (
+        {user ? (
           <>
             <NavLink className="nav-link text-white-50 ms-auto px-3 position-relative" to="/cart">
               Cart
