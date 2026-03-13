@@ -78,6 +78,13 @@ function deletePasskeys(email) {
   return passkeyCollection.deleteMany({ email: String(email) });
 }
 
+function deletePasskey(email, credentialIDBuffer) {
+  return passkeyCollection.deleteOne({
+    email: String(email),
+    credentialID: credentialIDBuffer
+  });
+}
+
 async function refreshUserToken(email) {
   const newToken = uuid.v4();
   await userCollection.updateOne(
@@ -105,7 +112,7 @@ module.exports = {
   getUserPasskeys,
   updatePasskeyCounter,
   refreshUserToken,
-  updateUserChallenge
-  // deletePasskeys
-  // deletePasskey
+  updateUserChallenge,
+  deletePasskeys,
+  deletePasskey
 };

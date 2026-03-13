@@ -73,3 +73,15 @@ export async function getPasskeys() {
   }
   throw new Error(`Failed to fetch passkeys: ${response.status} ${response.statusText}`);
 }
+
+export async function deletePasskey(id) {
+  const response = await fetch(`/api/auth/passkeys/${id}`, { method: 'DELETE' });
+  if (!response.ok) {
+    let message = 'Failed to delete passkey';
+    try {
+      const body = await response.json();
+      message = body.error || body.message || body.msg || message;
+    } catch (e) { /* ignore non-JSON error responses */ }
+    throw new Error(message);
+  }
+}

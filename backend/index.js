@@ -18,6 +18,10 @@ app.use(express.static(path.join(__dirname, '../dist')));
 app.use('/api', authRouter);
 app.use('/api', secureApiRouter);
 
+// Catch unhandled API routes so they don't fall through to the HTML catch-all
+app.use('/api', (req, res) => {
+    res.status(404).send({ error: `API route not found: ${req.method} ${req.url}` });
+});
 
 // Default error handler
 app.use((err, req, res, next) => {
@@ -30,8 +34,17 @@ app.use((err, req, res, next) => {
 });
 
 // Return the application's default page if the path is unknown
-app.use((_req, res) => {
-    res.sendFile('index.html', { root: path.join(__dirname, '../dist') });
+app.use((req, res) => {
+    if (process.env.NODE_ENV === 'production') {
+        res.sendFile('index.html', { root: path.join(__dirname, '../dist') });
+    } else {
+        // In development, prevent the server from crashing when looking for dist/index.html
+        res.status(404).send(
+            `Cannot ${req.method} ${req.url} <br><br>
+            <strong>Development Mode:</strong> You hit the Express backend fallback route. 
+            Make sure you are accessing the Vite server (http://localhost:5173) in your browser.`
+        );
+    }
 });
 
 const httpService = app.listen(port, () => {

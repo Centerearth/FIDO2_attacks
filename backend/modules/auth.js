@@ -88,13 +88,24 @@ secureApiRouter.get('/auth/passkeys', async (req, res) => {
 
   // We don't want to send the full passkey object to the client
   const safePasskeys = userPasskeys.map((key) => ({
-    // The credentialID is a buffer, so we encode it for JSON transport
-    credentialID: key.credentialID.toString('base64url'),
+    // MongoDB returns BSON Binary objects which don't natively support 'base64url' in toString().
+    // We use standard 'base64' and manually convert it to the base64url format.
+    credentialID: key.credentialID.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, ''),
     transports: key.transports,
     created_at: key.created_at,
   }));
 
   res.send(safePasskeys);
+});
+
+secureApiRouter.delete('/auth/passkeys/:id', async (req, res) => {
+  try {
+    const credentialIDBuffer = Buffer.from(req.params.id, 'base64url');
+    await DB.deletePasskey(req.user.email, credentialIDBuffer);
+    res.status(204).end();
+  } catch (e) {
+    res.status(400).send({ error: 'Failed to delete passkey' });
+  }
 });
 
 secureApiRouter.post('/auth/register-options', async (req, res) => {
@@ -112,7 +123,7 @@ secureApiRouter.post('/auth/register-options', async (req, res) => {
     userName: req.user.email,
     // Don't prompt to register the same authenticator twice
     excludeCredentials: userPasskeys.filter((pk) => pk.credentialID).map((passkey) => ({
-      id: passkey.credentialID.toString('base64url'),
+      id: passkey.credentialID.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, ''),
       transports: passkey.transports,
     })),
     authenticatorSelection: {

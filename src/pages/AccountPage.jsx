@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { startRegistration } from '@simplewebauthn/browser';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
-import { deleteAccount as deleteAccountApi, postAuthRequest, getPasskeys } from '../services/api';
+import { deleteAccount as deleteAccountApi, postAuthRequest, getPasskeys, deletePasskey } from '../services/api';
 
 export default function AccountPage() {
   const navigate = useNavigate();
@@ -32,6 +32,16 @@ export default function AccountPage() {
       await deleteAccountApi();
       clearUser();
       navigate('/');
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  async function handleDeletePasskey(id) {
+    if (!confirm('Are you sure you want to delete this passkey?')) return;
+    try {
+      await deletePasskey(id);
+      loadPasskeys();
     } catch (e) {
       alert(e.message);
     }
@@ -67,9 +77,17 @@ export default function AccountPage() {
             {passkeys.length > 0 ? (
               <ul className="list-group mt-3">
                 {passkeys.map((key) => (
-                  <li key={key.credentialID} className="list-group-item">
-                    Registered on {new Date(key.created_at).toLocaleDateString()}
-                    {key.transports && ` (via ${key.transports.join(', ')})`}
+                  <li key={key.credentialID} className="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                      Registered on {new Date(key.created_at).toLocaleDateString()}
+                      {key.transports && ` (via ${key.transports.join(', ')})`}
+                    </div>
+                    <button
+                      className="btn btn-sm btn-outline-danger"
+                      onClick={() => handleDeletePasskey(key.credentialID)}
+                    >
+                      Delete
+                    </button>
                   </li>
                 ))}
               </ul>
