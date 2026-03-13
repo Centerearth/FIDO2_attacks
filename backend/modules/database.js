@@ -87,6 +87,14 @@ async function refreshUserToken(email) {
   return newToken;
 }
 
+async function updateUserChallenge(email, challenge) {
+  await userCollection.updateOne(
+    { email: String(email) },
+    { $set: { challenge: challenge } }
+  );
+}
+
+
 module.exports = {
   getUser,
   getUserByToken,
@@ -97,4 +105,7 @@ module.exports = {
   getUserPasskeys,
   updatePasskeyCounter,
   refreshUserToken,
+  updateUserChallenge
+  // deletePasskeys
+  // deletePasskey
 };

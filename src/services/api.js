@@ -62,3 +62,14 @@ export async function deleteAccount() {
     throw new Error(message);
   }
 }
+
+export async function getPasskeys() {
+  const response = await fetch('/api/auth/passkeys');
+  if (response.ok) {
+    return response.json();
+  }
+  if (response.status === 401 || response.status === 403) {
+    return [];
+  }
+  throw new Error(`Failed to fetch passkeys: ${response.status} ${response.statusText}`);
+}

@@ -1,27 +1,36 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { startRegistration } from '@simplewebauthn/browser';
 import Layout from '../components/Layout';
-import { getUser, deleteAccount as deleteAccountApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { deleteAccount as deleteAccountApi, postAuthRequest, getPasskeys } from '../services/api';
 
 export default function AccountPage() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  const { user, clearUser } = useAuth();
+  const [passkeys, setPasskeys] = useState([]);
+
+  async function loadPasskeys() {
+    try {
+      const passkeyData = await getPasskeys();
+      setPasskeys(passkeyData);
+    } catch (e) {
+      console.error('Failed to load passkeys', e);
+    }
+  }
 
   useEffect(() => {
-    async function loadUser() {
-      try {
-        const data = await getUser();
-        if (data) setUser(data);
-      } catch { /* ignore error, user remains null */ }
+    if (user) {
+      loadPasskeys();
     }
-    loadUser();
-  }, []);
+  }, [user]);
 
   async function deleteAccount() {
     if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
 
     try {
       await deleteAccountApi();
+      clearUser();
       navigate('/');
     } catch (e) {
       alert(e.message);
@@ -29,7 +38,20 @@ export default function AccountPage() {
   }
 
   async function addPasskey() {
-    alert('Passkey functionality is not implemented yet.');
+    try {
+      // 1. Get options from server
+      const options = await postAuthRequest('/api/auth/register-options', {});
+
+      // 2. Pass options to browser authenticator
+      const attResp = await startRegistration(options);
+
+      // 3. Send response to server for verification
+      await postAuthRequest('/api/auth/register-verify', attResp);
+      alert('Passkey registered successfully!');
+      loadPasskeys();
+    } catch (e) {
+      alert(`Error registering passkey: ${e.message}`);
+    }
   }
 
   return (
@@ -40,6 +62,21 @@ export default function AccountPage() {
           <div className="mt-4 text-start">
             <p className="fs-5"><strong>Name:</strong> {user.name}</p>
             <p className="fs-5"><strong>Email:</strong> {user.email}</p>
+
+            <h4 className="mt-5">Your Passkeys</h4>
+            {passkeys.length > 0 ? (
+              <ul className="list-group mt-3">
+                {passkeys.map((key) => (
+                  <li key={key.credentialID} className="list-group-item">
+                    Registered on {new Date(key.created_at).toLocaleDateString()}
+                    {key.transports && ` (via ${key.transports.join(', ')})`}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>You have no passkeys registered.</p>
+            )}
+
             <div className="mt-4">
               <button className="btn btn-primary mt-3" onClick={addPasskey}>
                 Add passkey
