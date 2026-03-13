@@ -3,7 +3,12 @@ const cookieParser = require('cookie-parser');
 const bcrypt = require('bcrypt');
 const DB = require('./database.js');
 
-const { generateRegistrationOptions, verifyRegistrationResponse } = require('@simplewebauthn/server');
+const { 
+  generateRegistrationOptions, 
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse
+} = require('@simplewebauthn/server');
 
 const rpName = 'Simply Shopping';
 const rpID = 'localhost';
@@ -49,6 +54,97 @@ router.post('/auth/login', async (req, res) => {
   }
   console.log(`[AUTH] Login failed: ${req.body.email}`);
   res.status(401).send({ msg: 'Unauthorized' });
+});
+
+// Generate options for passkey authentication
+router.post('/auth/authentication-options', async (req, res) => {
+  const email = req.body.email;
+  if (!email) {
+    return res.status(400).send({ error: 'Email is required to log in.' });
+  }
+
+  const user = await DB.getUser(email);
+  if (!user) {
+    return res.status(404).send({ error: 'User not found.' });
+  }
+
+  const userPasskeys = await DB.getUserPasskeys(email);
+
+  const options = await generateAuthenticationOptions({
+    rpID,
+    allowCredentials: userPasskeys.filter((pk) => pk.credentialID).map((passkey) => ({
+      id: passkey.credentialID.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, ''),
+      transports: passkey.transports,
+    })),
+    userVerification: 'preferred',
+  });
+
+  await DB.updateUserChallenge(email, options.challenge);
+  res.send(options);
+});
+
+// Verify passkey authentication response
+router.post('/auth/authentication-verify', async (req, res) => {
+  const { email, response } = req.body;
+  if (!email || !response) {
+    return res.status(400).send({ error: 'Email and authentication response are required.' });
+  }
+
+  const user = await DB.getUser(email);
+  if (!user) {
+    return res.status(404).send({ error: 'User not found.' });
+  }
+
+  const expectedChallenge = user.challenge;
+  const userPasskeys = await DB.getUserPasskeys(email);
+
+  // Find the passkey that matches the id in the response
+  const passkey = userPasskeys.find(
+    (pk) => pk.credentialID.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '') === response.id
+  );
+
+  if (!passkey) {
+    return res.status(400).send({ error: 'Could not find a matching passkey for this user.' });
+  }
+
+  let verification;
+  try {
+    // Ensure keys are safely extracted into Uint8Arrays for the verification engine
+    const publicKeyBuffer = passkey.publicKey.buffer || passkey.publicKey;
+    const credentialIDBuffer = passkey.credentialID.buffer || passkey.credentialID;
+
+    verification = await verifyAuthenticationResponse({
+      response,
+      expectedChallenge,
+      expectedOrigin: origin,
+      expectedRPID: rpID,
+      credential: {
+        id: response.id,
+        publicKey: new Uint8Array(publicKeyBuffer),
+        counter: passkey.counter,
+      },
+      requireUserVerification: false,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(400).send({ error: error.message });
+  }
+
+  const { verified, authenticationInfo } = verification;
+
+  if (verified) {
+    // Update the counter to prevent replay attacks
+    await DB.updatePasskeyCounter(passkey.credentialID, authenticationInfo.newCounter);
+    await DB.updateUserChallenge(email, '');
+    
+    // Set the authentication cookie to log the user in
+    const newToken = await DB.refreshUserToken(user.email);
+    setAuthCookie(res, newToken);
+    
+    res.send({ verified, email: user.email, name: user.name });
+  } else {
+    res.status(400).send({ verified: false });
+  }
 });
 
 // DeleteAuth token if stored in cookie
@@ -184,6 +280,7 @@ secureApiRouter.post('/auth/register-verify', async (req, res) => {
     res.status(400).send({ verified: false });
   }
 });
+
 
 
 // setAuthCookie in the HTTP response

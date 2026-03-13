@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { startAuthentication } from '@simplewebauthn/browser';
 import Layout from '../components/Layout';
 import { postAuthRequest } from '../services/api.js';
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +18,30 @@ export default function LoginPage() {
       navigate('/');
     } catch (error) {
       alert(`⚠ Error: ${error.message}`);
+    }
+  }
+
+  async function loginUserPasskey() {
+    if (!email) {
+      alert('Please enter your email address first to use a passkey.');
+      return;
+    }
+
+    try {
+      // 1. Get options from server
+      const options = await postAuthRequest('/api/auth/authentication-options', { email });
+      console.log('Received authentication options from server:', options);
+      // 2. Pass options to browser authenticator
+      const attResp = await startAuthentication(options);
+
+      // 3. Send response to server for verification
+      const verifyResp = await postAuthRequest('/api/auth/authentication-verify', { email, response: attResp });
+      if (verifyResp.verified) {
+        login({ email: verifyResp.email, name: verifyResp.name });
+        navigate('/');
+      }
+    } catch (e) {
+      alert(`Error logging in with passkey: ${e.message}`);
     }
   }
 
@@ -54,6 +79,9 @@ export default function LoginPage() {
               </div>
               <button type="submit" className="btn btn-primary w-100 py-2">
                 Sign in
+              </button>
+              <button type="button" className="btn btn-primary w-100 py-2 mt-3" onClick={() => loginUserPasskey()}>
+                Sign in with passkey
               </button>
               <div className="text-center mt-3 d-flex justify-content-center align-items-center">
                 <p className="mb-0 me-2">
