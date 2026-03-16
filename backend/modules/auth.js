@@ -79,7 +79,12 @@ router.post('/auth/authentication-options', async (req, res) => {
     userVerification: 'preferred',
   });
 
-  await DB.updateUserChallenge(email, options.challenge);
+  res.cookie('webauthn_challenge', options.challenge, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
+    maxAge: 300000, // 5 minutes
+  });
   res.send(options);
 });
 
@@ -95,7 +100,11 @@ router.post('/auth/authentication-verify', async (req, res) => {
     return res.status(404).send({ error: 'User not found.' });
   }
 
-  const expectedChallenge = user.challenge;
+  const expectedChallenge = req.cookies.webauthn_challenge;
+  if (!expectedChallenge) {
+    return res.status(400).send({ error: 'Challenge expired or not found.' });
+  }
+
   const userPasskeys = await DB.getUserPasskeys(email);
 
   // Find the passkey that matches the id in the response
@@ -135,7 +144,7 @@ router.post('/auth/authentication-verify', async (req, res) => {
   if (verified) {
     // Update the counter to prevent replay attacks
     await DB.updatePasskeyCounter(passkey.credentialID, authenticationInfo.newCounter);
-    await DB.updateUserChallenge(email, '');
+    res.clearCookie('webauthn_challenge');
     
     // Set the authentication cookie to log the user in
     const newToken = await DB.refreshUserToken(user.email);
@@ -228,7 +237,12 @@ secureApiRouter.post('/auth/register-options', async (req, res) => {
     },
   });
 
-  await DB.updateUserChallenge(req.user.email, options.challenge);
+  res.cookie('webauthn_challenge', options.challenge, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
+    maxAge: 300000, // 5 minutes
+  });
 
   res.send(options);
 });
@@ -236,7 +250,11 @@ secureApiRouter.post('/auth/register-options', async (req, res) => {
 secureApiRouter.post('/auth/register-verify', async (req, res) => {
   const { body } = req;
   const user = await DB.getUser(req.user.email);
-  const expectedChallenge = user.challenge;
+  const expectedChallenge = req.cookies.webauthn_challenge;
+
+  if (!expectedChallenge) {
+    return res.status(400).send({ error: 'Challenge expired or not found.' });
+  }
 
   let verification;
   try {
@@ -273,7 +291,7 @@ secureApiRouter.post('/auth/register-verify', async (req, res) => {
       transports: body.response.transports,
     });
 
-    await DB.updateUserChallenge(user.email, '');
+    res.clearCookie('webauthn_challenge');
 
     res.send({ verified });
   } else {
