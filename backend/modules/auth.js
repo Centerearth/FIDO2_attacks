@@ -45,19 +45,22 @@ router.post('/auth/login', async (req, res) => {
   const user = await DB.getUser(req.body.email);
   const password = req.body.password || '';
 
-  if (!password || password == '' || await bcrypt.compare(password, '')) {
-    console.log(`[AUTH] Login failed: No password registered for ${req.body.email}`);
+  if (!user) {
+    console.log(`[AUTH] Login failed: User not found ${req.body.email}`);
     res.status(401).send({ msg: 'Unauthorized' });
     return;
-  } else if (user) {
-    if (await bcrypt.compare(req.body.password, user.password)) {
-      console.log(`[AUTH] Login successful: ${req.body.email}`);
-      const newToken = await DB.refreshUserToken(user.email);
-      setAuthCookie(res, newToken);
-      res.send({ email: user.email, name: user.name });
-      return;
-    }
+  } else if (!user.password) {
+    console.log(`[AUTH] Login failed: Passkey-only account for ${req.body.email}`);
+    res.status(401).send({ msg: 'Unauthorized: Please use a passkey to sign in' });
+    return;
+  } else if (password && await bcrypt.compare(password, user.password)) {
+    console.log(`[AUTH] Login successful: ${req.body.email}`);
+    const newToken = await DB.refreshUserToken(user.email);
+    setAuthCookie(res, newToken);
+    res.send({ email: user.email, name: user.name });
+    return;
   }
+
   console.log(`[AUTH] Login failed: ${req.body.email}`);
   res.status(401).send({ msg: 'Unauthorized' });
 });
