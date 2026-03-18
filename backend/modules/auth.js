@@ -165,6 +165,108 @@ router.post('/auth/authentication-verify', async (req, res) => {
   }
 });
 
+// Generate options for passkey registration (New User Signup)
+router.post('/auth/signup-register-options', async (req, res) => {
+  const { email, name } = req.body;
+  if (!email || !name) {
+    return res.status(400).send({ error: 'Email and name are required.' });
+  }
+
+  if (await DB.getUser(email)) {
+    return res.status(409).send({ error: 'User already exists.' });
+  }
+
+  const options = await generateRegistrationOptions({
+    rpName,
+    rpID,
+    userID: new Uint8Array(Buffer.from(email)),
+    userName: email,
+    authenticatorSelection: {
+      residentKey: 'preferred',
+      userVerification: 'preferred',
+    },
+  });
+
+  // Store pending user data and challenge in a cookie
+  const pendingData = {
+    challenge: options.challenge,
+    email,
+    name,
+  };
+
+  res.cookie('webauthn_signup', JSON.stringify(pendingData), {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
+    maxAge: 300000, // 5 minutes
+  });
+
+  res.send(options);
+});
+
+// Verify passkey registration and create user (New User Signup)
+router.post('/auth/signup-register-verify', async (req, res) => {
+  const { body } = req;
+  const pendingDataStr = req.cookies.webauthn_signup;
+
+  if (!pendingDataStr) {
+    return res.status(400).send({ error: 'Registration session expired or not found.' });
+  }
+
+  const pendingData = JSON.parse(pendingDataStr);
+  
+  if (await DB.getUser(pendingData.email)) {
+    return res.status(409).send({ error: 'User already exists.' });
+  }
+
+  let verification;
+  try {
+    verification = await verifyRegistrationResponse({
+      response: body,
+      expectedChallenge: pendingData.challenge,
+      expectedOrigin: origin,
+      expectedRPID: rpID,
+      requireUserVerification: false,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(400).send({ error: error.message });
+  }
+
+  const { verified, registrationInfo } = verification;
+
+  if (verified && registrationInfo) {
+    const credentialPublicKey = registrationInfo.credential?.publicKey || registrationInfo.credentialPublicKey;
+    const credentialID = registrationInfo.credential?.id || registrationInfo.credentialID;
+    const counter = registrationInfo.credential?.counter ?? registrationInfo.counter;
+
+    if (!credentialPublicKey || !credentialID) {
+      console.error('[AUTH] Registration failed: missing key details.');
+      return res.status(400).send({ error: 'Registration failed: authenticator response missing key details.' });
+    }
+
+    // 1. Create the user in the database (passing null for password)
+    const user = await DB.createUser(pendingData.name, pendingData.email, null);
+
+    // 2. Create the passkey
+    await DB.createPasskey(user.email, {
+      publicKey: Buffer.from(credentialPublicKey),
+      credentialID: typeof credentialID === 'string' ? Buffer.from(credentialID, 'base64url') : Buffer.from(credentialID),
+      counter,
+      transports: body.response.transports,
+    });
+
+    res.clearCookie('webauthn_signup');
+
+    // 3. Log them in
+    setAuthCookie(res, user.token);
+
+    res.send({ verified: true, email: user.email, name: user.name });
+  } else {
+    res.status(400).send({ verified: false });
+  }
+});
+
 // DeleteAuth token if stored in cookie
 router.delete('/auth/logout', (_req, res) => {
   console.log('[AUTH] Logout request');

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { postAuthRequest, deleteAccount } from '../services/api.js';
+import { postAuthRequest } from '../services/api.js';
 import { useAuth } from '../context/AuthContext';
 import { startRegistration } from '@simplewebauthn/browser';
 
@@ -33,29 +33,22 @@ export default function SignUpPage() {
       return;
     }
     
-    let userData;
     try {
-      userData = await postAuthRequest('/api/auth/create', { name: userName, email, "password": "" });
-    } catch (e) {
-      alert(`⚠ Error creating account: ${e.message}`);
-      return;
-    }
-
-    try {
-      // 1. Get options from server
-      const options = await postAuthRequest('/api/auth/register-options', {});
+      // 1. Get options from server (and set pending user session)
+      const options = await postAuthRequest('/api/auth/signup-register-options', { email, name: userName });
 
       // 2. Pass options to browser authenticator
       const attResp = await startRegistration(options);
 
       // 3. Send response to server for verification
-      await postAuthRequest('/api/auth/register-verify', attResp);
-      alert('Passkey registered successfully!');
-      login(userData);
-      navigate('/');
+      const verifyResp = await postAuthRequest('/api/auth/signup-register-verify', attResp);
+      if (verifyResp.verified) {
+        alert('Passkey registered successfully!');
+        login({ email: verifyResp.email, name: verifyResp.name });
+        navigate('/');
+      }
     } catch (e) {
       alert(`Error registering passkey: ${e.message}`);
-      await deleteAccount();
     }
   
   }
