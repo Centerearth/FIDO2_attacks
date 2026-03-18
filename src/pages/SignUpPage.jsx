@@ -31,7 +31,7 @@ export default function SignUpPage() {
     if (!email || !userName) {
       alert('Please enter your email address and name first to use a passkey.');
     }
-    const userData = await postAuthRequest('/api/auth/create', { name: userName, email, password: "" });
+    const userData = await postAuthRequest('/api/auth/create', { name: userName, email, "password": "" });
     
     try {
       // 1. Get options from server

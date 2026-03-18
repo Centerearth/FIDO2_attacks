@@ -43,7 +43,13 @@ router.post('/auth/create', async (req, res) => {
 router.post('/auth/login', async (req, res) => {
   console.log(`[AUTH] Login attempt: ${req.body.email}`);
   const user = await DB.getUser(req.body.email);
-  if (user) {
+  const password = req.body.password || '';
+
+  if (!password || password == '' || await bcrypt.compare(password, '')) {
+    console.log(`[AUTH] Login failed: No password registered for ${req.body.email}`);
+    res.status(401).send({ msg: 'Unauthorized' });
+    return;
+  } else if (user) {
     if (await bcrypt.compare(req.body.password, user.password)) {
       console.log(`[AUTH] Login successful: ${req.body.email}`);
       const newToken = await DB.refreshUserToken(user.email);
