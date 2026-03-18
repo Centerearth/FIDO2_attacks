@@ -3,12 +3,8 @@ Notes
 add unit tests ?
 FIDO2!!
 
-learn more about fido2
-sign up with passkey
-  -change so that database can have null passwords but that it is impossible to sign in with them
-  -use unauthenticated endpoint that receives email and name, verifies they are not taken, create the challenge, and save challenge. start registration, then have another verify on the unauthenticated endpoint.
-  Then create the user and create the passkey
-
+right now , if passkey sign up fails, the user is still created
+also should I add a place to change or add passwords?
 
 
 202426

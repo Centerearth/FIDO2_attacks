@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { postAuthRequest } from '../services/api.js';
+import { postAuthRequest, deleteAccount } from '../services/api.js';
 import { useAuth } from '../context/AuthContext';
 import { startRegistration } from '@simplewebauthn/browser';
 
@@ -30,9 +30,17 @@ export default function SignUpPage() {
   async function createUserAndPasskey() {
     if (!email || !userName) {
       alert('Please enter your email address and name first to use a passkey.');
+      return;
     }
-    const userData = await postAuthRequest('/api/auth/create', { name: userName, email, "password": "" });
     
+    let userData;
+    try {
+      userData = await postAuthRequest('/api/auth/create', { name: userName, email, "password": "" });
+    } catch (e) {
+      alert(`⚠ Error creating account: ${e.message}`);
+      return;
+    }
+
     try {
       // 1. Get options from server
       const options = await postAuthRequest('/api/auth/register-options', {});
@@ -47,10 +55,9 @@ export default function SignUpPage() {
       navigate('/');
     } catch (e) {
       alert(`Error registering passkey: ${e.message}`);
+      await deleteAccount();
     }
-    return;
   
-  //use the already existing function, but allow passwords to be null or empty for passkey registration. Must update backend to not allow sign in with empty password, but allow it for registration if passkey is used.
   }
 
   return (
