@@ -105,7 +105,6 @@ module.exports = {
   getUserPasskeys,
   updatePasskeyCounter,
   refreshUserToken,
-  updateUserChallenge,
   deletePasskeys,
   deletePasskey
 };

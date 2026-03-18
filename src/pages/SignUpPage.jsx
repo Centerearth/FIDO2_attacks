@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { postAuthRequest } from '../services/api.js';
 import { useAuth } from '../context/AuthContext';
+import { startRegistration } from '@simplewebauthn/browser';
 
 export default function SignUpPage() {
   const navigate = useNavigate();
@@ -24,6 +25,32 @@ export default function SignUpPage() {
     } catch (error) {
       alert(`⚠ Error: ${error.message}`);
     }
+  }
+
+  async function createUserAndPasskey() {
+    if (!email || !userName) {
+      alert('Please enter your email address and name first to use a passkey.');
+    }
+    const userData = await postAuthRequest('/api/auth/create', { name: userName, email, password: "" });
+    
+    try {
+      // 1. Get options from server
+      const options = await postAuthRequest('/api/auth/register-options', {});
+
+      // 2. Pass options to browser authenticator
+      const attResp = await startRegistration(options);
+
+      // 3. Send response to server for verification
+      await postAuthRequest('/api/auth/register-verify', attResp);
+      alert('Passkey registered successfully!');
+      login(userData);
+      navigate('/');
+    } catch (e) {
+      alert(`Error registering passkey: ${e.message}`);
+    }
+    return;
+  
+  //use the already existing function, but allow passwords to be null or empty for passkey registration. Must update backend to not allow sign in with empty password, but allow it for registration if passkey is used.
   }
 
   return (
@@ -71,6 +98,9 @@ export default function SignUpPage() {
               </div>
               <button type="submit" className="btn btn-primary w-100 py-2">
                 Register
+              </button>
+              <button type="button" className="btn btn-primary w-100 py-2 mt-3" onClick={() => createUserAndPasskey()}>
+                Sign up with passkey
               </button>
               <div className="text-center mt-3 d-flex justify-content-center align-items-center">
                 <p className="mb-0 me-2">

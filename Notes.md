@@ -3,16 +3,12 @@ Notes
 add unit tests ?
 FIDO2!!
 
-read and understand
-gemini says storing challenges is unsafe
 learn more about fido2
-login without email
 sign up with passkey
+  -change so that database can have null passwords but that it is impossible to sign in with them
+  -use unauthenticated endpoint that receives email and name, verifies they are not taken, create the challenge, and save challenge. start registration, then have another verify on the unauthenticated endpoint.
+  Then create the user and create the passkey
 
 
-Add the option for a user to add a passkey
-    -registration endpoints and client start registration
-then login with a passkey
-then sign up with a passkey
 
 202426
