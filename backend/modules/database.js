@@ -1,6 +1,6 @@
 const { MongoClient } = require('mongodb');
 const bcrypt = require('bcrypt');
-const uuid = require('uuid');
+const crypto = require('crypto');
 
 const userName = process.env.MONGOUSER;
 const password = process.env.MONGOPASSWORD;
@@ -33,7 +33,7 @@ async function createUser(name, email, password) {
     name: name,
     email: email,
     password: passwordHash,
-    token: uuid.v4(),
+    token: crypto.randomUUID(),
   };
   await userCollection.insertOne(user);
 
@@ -86,7 +86,7 @@ function deletePasskey(email, credentialIDBuffer) {
 }
 
 async function refreshUserToken(email) {
-  const newToken = uuid.v4();
+  const newToken = crypto.randomUUID();
   await userCollection.updateOne(
     { email: String(email) },
     { $set: { token: newToken } }
