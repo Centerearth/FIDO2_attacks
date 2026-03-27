@@ -161,7 +161,7 @@ export default function AccountPage() {
                 />
               </div>
               {passwordMsg && (
-                <div className={`alert alert-${passwordMsg.type} py-2`} style={{ maxWidth: '400px' }}>
+                <div role="alert" className={`alert alert-${passwordMsg.type} py-2`} style={{ maxWidth: '400px' }}>
                   {passwordMsg.text}
                 </div>
               )}

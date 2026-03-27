@@ -74,7 +74,7 @@ export default function LoginPage() {
                 <label htmlFor="loginPassword">Password</label>
               </div>
               {errorMsg && (
-                <div className="alert alert-danger py-2 mb-3">
+                <div role="alert" className="alert alert-danger py-2 mb-3">
                   {errorMsg}
                 </div>
               )}
