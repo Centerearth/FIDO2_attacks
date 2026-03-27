@@ -16,6 +16,9 @@ export default function AccountPage() {
   const [passwordMsg, setPasswordMsg] = useState(null);
   const [confirmModal, setConfirmModal] = useState(CONFIRM_CLOSED);
   const [infoModal, setInfoModal] = useState(INFO_CLOSED);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [accountLoading, setAccountLoading] = useState(false);
 
   function showInfo(title, body, variant = 'success') {
     setInfoModal({ show: true, title, body, variant });
@@ -45,12 +48,15 @@ export default function AccountPage() {
       'Delete Account',
       'Are you sure you want to delete your account? This cannot be undone.',
       async () => {
+        setAccountLoading(true);
         try {
           await deleteAccountApi();
           clearUser();
           navigate('/');
         } catch (e) {
           showInfo('Error', e.message, 'danger');
+        } finally {
+          setAccountLoading(false);
         }
       }
     );
@@ -61,11 +67,14 @@ export default function AccountPage() {
       'Delete Passkey',
       'Are you sure you want to delete this passkey?',
       async () => {
+        setPasskeyLoading(true);
         try {
           await deletePasskey(id);
           loadPasskeys();
         } catch (e) {
           showInfo('Error', e.message, 'danger');
+        } finally {
+          setPasskeyLoading(false);
         }
       }
     );
@@ -73,16 +82,20 @@ export default function AccountPage() {
 
   async function handleChangePassword(e) {
     e.preventDefault();
+    setPasswordLoading(true);
     try {
       await updatePassword(newPassword);
       setNewPassword('');
       setPasswordMsg({ type: 'success', text: 'Password updated successfully.' });
     } catch (err) {
       setPasswordMsg({ type: 'danger', text: err.message });
+    } finally {
+      setPasswordLoading(false);
     }
   }
 
   async function addPasskey() {
+    setPasskeyLoading(true);
     try {
       const options = await postAuthRequest('/api/auth/register-options', {});
       const attResp = await startRegistration(options);
@@ -91,6 +104,8 @@ export default function AccountPage() {
       loadPasskeys();
     } catch (e) {
       showInfo('Error', `Error registering passkey: ${e.message}`, 'danger');
+    } finally {
+      setPasskeyLoading(false);
     }
   }
 
@@ -114,6 +129,7 @@ export default function AccountPage() {
                     </div>
                     <button
                       className="btn btn-sm btn-outline-danger"
+                      disabled={passkeyLoading}
                       onClick={() => handleDeletePasskey(key.credentialID)}
                     >
                       Delete
@@ -126,8 +142,8 @@ export default function AccountPage() {
             )}
 
             <div className="mt-4">
-              <button className="btn btn-primary mt-3" onClick={addPasskey}>
-                Add passkey
+              <button className="btn btn-primary mt-3" disabled={passkeyLoading} onClick={addPasskey}>
+                {passkeyLoading ? <><span className="spinner-border spinner-border-sm me-2" />Adding...</> : 'Add passkey'}
               </button>
             </div>
 
@@ -149,10 +165,12 @@ export default function AccountPage() {
                   {passwordMsg.text}
                 </div>
               )}
-              <button type="submit" className="btn btn-primary">Update Password</button>
+              <button type="submit" className="btn btn-primary" disabled={passwordLoading}>
+                {passwordLoading ? <><span className="spinner-border spinner-border-sm me-2" />Updating...</> : 'Update Password'}
+              </button>
             </form>
 
-            <button className="btn btn-danger mt-5" onClick={deleteAccount}>
+            <button className="btn btn-danger mt-5" disabled={accountLoading} onClick={deleteAccount}>
               Delete Account
             </button>
           </div>
