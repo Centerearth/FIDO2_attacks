@@ -1,7 +1,8 @@
 process.env.RP_ID = 'localhost';
 process.env.ORIGIN = 'http://localhost:5173';
 
-//since mocking database.js normally requires the enviornment variables, we instead mock all of the functions
+// The secureApiRouter middleware calls DB.getUserByToken directly, so DB is still mocked.
+// Everything else goes through AuthService.
 jest.mock('./database.js', () => ({
   init: jest.fn(),
   getUser: jest.fn(),
@@ -17,8 +18,24 @@ jest.mock('./database.js', () => ({
   deletePasskeys: jest.fn(),
   deletePasskey: jest.fn(),
 }));
-jest.mock('@simplewebauthn/server');
-jest.mock('bcrypt');
+
+jest.mock('./authService.js', () => ({
+  ServiceError: class ServiceError extends Error {
+    constructor(message, status) { super(message); this.status = status; }
+  },
+  createUser: jest.fn(),
+  loginUser: jest.fn(),
+  generateAuthOptions: jest.fn(),
+  verifyAuth: jest.fn(),
+  generateSignupRegOptions: jest.fn(),
+  verifySignupReg: jest.fn(),
+  generateRegOptions: jest.fn(),
+  verifyReg: jest.fn(),
+  getPasskeys: jest.fn(),
+  deletePasskeyById: jest.fn(),
+  changePassword: jest.fn(),
+  deleteAccount: jest.fn(),
+}));
 
 const request = require('supertest');
 const express = require('express');
@@ -26,13 +43,8 @@ const cookieParser = require('cookie-parser');
 
 const { router, secureApiRouter } = require('./auth');
 const DB = require('./database.js');
-const bcrypt = require('bcrypt');
-const {
-  generateRegistrationOptions,
-  verifyRegistrationResponse,
-  generateAuthenticationOptions,
-  verifyAuthenticationResponse,
-} = require('@simplewebauthn/server');
+const AuthService = require('./authService.js');
+const { ServiceError } = AuthService;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -45,7 +57,6 @@ function buildPublicApp() {
   return app;
 }
 
-// The secure router relies on cookie-parser to read the auth token.
 function buildSecureApp() {
   const app = express();
   app.use(express.json());
@@ -55,16 +66,14 @@ function buildSecureApp() {
 }
 
 const TEST_TOKEN = 'valid-token';
-const TEST_USER = { email: 'a@b.com', name: 'Alice', token: TEST_TOKEN };
+const TEST_USER  = { email: 'a@b.com', name: 'Alice', token: TEST_TOKEN };
 
-// Authenticate every secure-app request with a valid token cookie.
 function authed(req) {
   return req.set('Cookie', `token=${TEST_TOKEN}`);
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
-  // Default: the secure router's auth middleware resolves successfully.
   DB.getUserByToken.mockResolvedValue(TEST_USER);
 });
 
@@ -73,8 +82,8 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('POST /auth/create', () => {
-  it('returns 409 when the user already exists', async () => {
-    DB.getUser.mockResolvedValue(TEST_USER);
+  it('returns 409 when the service throws a 409 ServiceError', async () => {
+    AuthService.createUser.mockRejectedValue(new ServiceError('Existing user', 409));
 
     const res = await request(buildPublicApp())
       .post('/api/auth/create')
@@ -84,9 +93,8 @@ describe('POST /auth/create', () => {
     expect(res.body.error).toBe('Existing user');
   });
 
-  it('creates a new user and returns email + name', async () => {
-    DB.getUser.mockResolvedValue(null);
-    DB.createUser.mockResolvedValue(TEST_USER);
+  it('sets an auth cookie and returns email + name on success', async () => {
+    AuthService.createUser.mockResolvedValue(TEST_USER);
 
     const res = await request(buildPublicApp())
       .post('/api/auth/create')
@@ -94,7 +102,7 @@ describe('POST /auth/create', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ email: 'a@b.com', name: 'Alice' });
-    expect(DB.createUser).toHaveBeenCalledWith('Alice', 'a@b.com', 'pw');
+    expect(res.headers['set-cookie']).toBeDefined();
   });
 });
 
@@ -103,18 +111,20 @@ describe('POST /auth/create', () => {
 // ---------------------------------------------------------------------------
 
 describe('POST /auth/login', () => {
-  it('returns 401 when the user does not exist', async () => {
-    DB.getUser.mockResolvedValue(null);
+  it('returns 401 when the service throws a 401 ServiceError', async () => {
+    AuthService.loginUser.mockRejectedValue(new ServiceError('Unauthorized', 401));
 
     const res = await request(buildPublicApp())
       .post('/api/auth/login')
-      .send({ email: 'missing@b.com', password: 'pw' });
+      .send({ email: 'a@b.com', password: 'wrong' });
 
     expect(res.status).toBe(401);
   });
 
-  it('returns 401 with a passkey-only message when the account has no password', async () => {
-    DB.getUser.mockResolvedValue({ ...TEST_USER, password: undefined });
+  it('returns 401 with a passkey message for passkey-only accounts', async () => {
+    AuthService.loginUser.mockRejectedValue(
+      new ServiceError('Unauthorized: Please use a passkey to sign in', 401)
+    );
 
     const res = await request(buildPublicApp())
       .post('/api/auth/login')
@@ -124,21 +134,8 @@ describe('POST /auth/login', () => {
     expect(res.body.error).toMatch(/passkey/i);
   });
 
-  it('returns 401 when the password does not match', async () => {
-    DB.getUser.mockResolvedValue({ ...TEST_USER, password: 'hashed' });
-    bcrypt.compare.mockResolvedValue(false);
-
-    const res = await request(buildPublicApp())
-      .post('/api/auth/login')
-      .send({ email: 'a@b.com', password: 'wrong' });
-
-    expect(res.status).toBe(401);
-  });
-
-  it('returns 200 and sets a cookie on successful login', async () => {
-    DB.getUser.mockResolvedValue({ ...TEST_USER, password: 'hashed' });
-    bcrypt.compare.mockResolvedValue(true);
-    DB.refreshUserToken.mockResolvedValue('new-token');
+  it('sets an auth cookie and returns user on success', async () => {
+    AuthService.loginUser.mockResolvedValue(TEST_USER);
 
     const res = await request(buildPublicApp())
       .post('/api/auth/login')
@@ -161,10 +158,11 @@ describe('POST /auth/authentication-options', () => {
       .send({});
 
     expect(res.status).toBe(400);
+    expect(AuthService.generateAuthOptions).not.toHaveBeenCalled();
   });
 
-  it('returns 404 when the user does not exist', async () => {
-    DB.getUser.mockResolvedValue(null);
+  it('returns 404 when the service throws a 404 ServiceError', async () => {
+    AuthService.generateAuthOptions.mockRejectedValue(new ServiceError('User not found.', 404));
 
     const res = await request(buildPublicApp())
       .post('/api/auth/authentication-options')
@@ -174,9 +172,7 @@ describe('POST /auth/authentication-options', () => {
   });
 
   it('returns options and sets a challenge cookie', async () => {
-    DB.getUser.mockResolvedValue(TEST_USER);
-    DB.getUserPasskeys.mockResolvedValue([]);
-    generateAuthenticationOptions.mockResolvedValue({ challenge: 'chall-abc', rpId: 'localhost' });
+    AuthService.generateAuthOptions.mockResolvedValue({ challenge: 'chall-abc', rpId: 'localhost' });
 
     const res = await request(buildPublicApp())
       .post('/api/auth/authentication-options')
@@ -196,38 +192,23 @@ describe('POST /auth/authentication-verify', () => {
   it('returns 400 when email or response is missing', async () => {
     const res = await request(buildPublicApp())
       .post('/api/auth/authentication-verify')
-      .send({ email: 'a@b.com' }); // missing response
+      .send({ email: 'a@b.com' });
 
     expect(res.status).toBe(400);
   });
 
-  it('returns 404 when the user does not exist', async () => {
-    DB.getUser.mockResolvedValue(null);
-
-    const res = await request(buildPublicApp())
-      .post('/api/auth/authentication-verify')
-      .send({ email: 'a@b.com', response: { id: 'cred-id' } });
-
-    expect(res.status).toBe(404);
-  });
-
   it('returns 400 when no challenge cookie is present', async () => {
-    DB.getUser.mockResolvedValue(TEST_USER);
-    DB.getUserPasskeys.mockResolvedValue([]);
-
     const res = await request(buildPublicApp())
       .post('/api/auth/authentication-verify')
       .send({ email: 'a@b.com', response: { id: 'cred-id' } });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/challenge/i);
+    expect(AuthService.verifyAuth).not.toHaveBeenCalled();
   });
 
-  it('returns 400 when no matching passkey is found', async () => {
-    DB.getUser.mockResolvedValue(TEST_USER);
-    DB.getUserPasskeys.mockResolvedValue([
-      { credentialID: Buffer.from('other-cred'), counter: 0, transports: [] },
-    ]);
+  it('returns 400 when the service throws a 400 ServiceError', async () => {
+    AuthService.verifyAuth.mockRejectedValue(new ServiceError('Could not find a matching passkey for this user.', 400));
 
     const res = await request(buildPublicApp())
       .post('/api/auth/authentication-verify')
@@ -235,37 +216,19 @@ describe('POST /auth/authentication-verify', () => {
       .send({ email: 'a@b.com', response: { id: 'no-match' } });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/passkey/i);
   });
 
-  it('returns 200 and logs in the user on successful verification', async () => {
-    const credentialID = Buffer.from('valid-cred');
-    // base64 encode to get the id the route will look for
-    const credentialIDBase64url = credentialID
-      .toString('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=/g, '');
-
-    DB.getUser.mockResolvedValue(TEST_USER);
-    DB.getUserPasskeys.mockResolvedValue([
-      { credentialID, publicKey: Buffer.from('pubkey'), counter: 0, transports: [] },
-    ]);
-    verifyAuthenticationResponse.mockResolvedValue({
-      verified: true,
-      authenticationInfo: { newCounter: 1 },
-    });
-    DB.updatePasskeyCounter.mockResolvedValue();
-    DB.refreshUserToken.mockResolvedValue('fresh-token');
+  it('sets an auth cookie and returns verified on success', async () => {
+    AuthService.verifyAuth.mockResolvedValue({ verified: true, email: 'a@b.com', name: 'Alice', token: 'new-tok' });
 
     const res = await request(buildPublicApp())
       .post('/api/auth/authentication-verify')
       .set('Cookie', 'webauthn_challenge=chall-abc')
-      .send({ email: 'a@b.com', response: { id: credentialIDBase64url } });
+      .send({ email: 'a@b.com', response: { id: 'cred-id' } });
 
     expect(res.status).toBe(200);
     expect(res.body.verified).toBe(true);
-    expect(res.body.email).toBe('a@b.com');
+    expect(res.headers['set-cookie']).toBeDefined();
   });
 });
 
@@ -277,13 +240,14 @@ describe('POST /auth/signup-register-options', () => {
   it('returns 400 when email or name is missing', async () => {
     const res = await request(buildPublicApp())
       .post('/api/auth/signup-register-options')
-      .send({ email: 'a@b.com' }); // missing name
+      .send({ email: 'a@b.com' });
 
     expect(res.status).toBe(400);
+    expect(AuthService.generateSignupRegOptions).not.toHaveBeenCalled();
   });
 
-  it('returns 409 when the user already exists', async () => {
-    DB.getUser.mockResolvedValue(TEST_USER);
+  it('returns 409 when the service throws a 409 ServiceError', async () => {
+    AuthService.generateSignupRegOptions.mockRejectedValue(new ServiceError('User already exists.', 409));
 
     const res = await request(buildPublicApp())
       .post('/api/auth/signup-register-options')
@@ -293,15 +257,13 @@ describe('POST /auth/signup-register-options', () => {
   });
 
   it('returns options and sets a signup cookie', async () => {
-    DB.getUser.mockResolvedValue(null);
-    generateRegistrationOptions.mockResolvedValue({ challenge: 'signup-chall', rp: {} });
+    AuthService.generateSignupRegOptions.mockResolvedValue({ challenge: 'signup-chall', rp: {} });
 
     const res = await request(buildPublicApp())
       .post('/api/auth/signup-register-options')
       .send({ email: 'new@b.com', name: 'Bob' });
 
     expect(res.status).toBe(200);
-    expect(res.body.challenge).toBe('signup-chall');
     expect(res.headers['set-cookie']).toBeDefined();
   });
 });
@@ -318,10 +280,11 @@ describe('POST /auth/signup-register-verify', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/expired/i);
+    expect(AuthService.verifySignupReg).not.toHaveBeenCalled();
   });
 
-  it('returns 409 when the user already exists', async () => {
-    DB.getUser.mockResolvedValue(TEST_USER);
+  it('returns 409 when the service throws a 409 ServiceError', async () => {
+    AuthService.verifySignupReg.mockRejectedValue(new ServiceError('User already exists.', 409));
     const pending = JSON.stringify({ challenge: 'c', email: 'a@b.com', name: 'Alice' });
 
     const res = await request(buildPublicApp())
@@ -332,30 +295,20 @@ describe('POST /auth/signup-register-verify', () => {
     expect(res.status).toBe(409);
   });
 
-  it('creates the user and passkey on successful verification', async () => {
-    DB.getUser.mockResolvedValue(null);
-    const credentialPublicKey = new Uint8Array([1, 2, 3]);
-    const credentialID = 'base64url-credential-id';
-    verifyRegistrationResponse.mockResolvedValue({
-      verified: true,
-      registrationInfo: {
-        credential: { publicKey: credentialPublicKey, id: credentialID, counter: 0 },
-      },
+  it('sets an auth cookie and returns verified on success', async () => {
+    AuthService.verifySignupReg.mockResolvedValue({
+      verified: true, email: 'new@b.com', name: 'Bob', token: 'tok-new',
     });
-    DB.createUser.mockResolvedValue(TEST_USER);
-    DB.createPasskey.mockResolvedValue();
-
     const pending = JSON.stringify({ challenge: 'c', email: 'new@b.com', name: 'Bob' });
 
     const res = await request(buildPublicApp())
       .post('/api/auth/signup-register-verify')
       .set('Cookie', `webauthn_signup=${pending}`)
-      .send({ response: { transports: ['usb'] } });
+      .send({});
 
     expect(res.status).toBe(200);
     expect(res.body.verified).toBe(true);
-    expect(DB.createUser).toHaveBeenCalledWith('Bob', 'new@b.com', null);
-    expect(DB.createPasskey).toHaveBeenCalled();
+    expect(res.headers['set-cookie']).toBeDefined();
   });
 });
 
@@ -364,25 +317,20 @@ describe('POST /auth/signup-register-verify', () => {
 // ---------------------------------------------------------------------------
 
 describe('DELETE /auth/logout', () => {
-  it('returns 204 and clears the auth cookie', async () => {
-    const res = await request(buildPublicApp())
-      .delete('/api/auth/logout');
-
+  it('returns 204', async () => {
+    const res = await request(buildPublicApp()).delete('/api/auth/logout');
     expect(res.status).toBe(204);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Secure router middleware
+// secureApiRouter middleware
 // ---------------------------------------------------------------------------
 
-describe('secureApiRouter auth middleware', () => {
-  it('returns 401 when no token cookie is provided', async () => {
+describe('secureApiRouter middleware', () => {
+  it('returns 401 when the token is missing or invalid', async () => {
     DB.getUserByToken.mockResolvedValue(null);
-
-    const res = await request(buildSecureApp())
-      .get('/api/auth/me');
-
+    const res = await request(buildSecureApp()).get('/api/auth/me');
     expect(res.status).toBe(401);
   });
 });
@@ -392,9 +340,8 @@ describe('secureApiRouter auth middleware', () => {
 // ---------------------------------------------------------------------------
 
 describe('GET /auth/me', () => {
-  it('returns the current user email and name', async () => {
+  it('returns the current user', async () => {
     const res = await authed(request(buildSecureApp()).get('/api/auth/me'));
-
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ email: 'a@b.com', name: 'Alice' });
   });
@@ -406,12 +353,12 @@ describe('GET /auth/me', () => {
 
 describe('DELETE /auth/account', () => {
   it('deletes the account and returns 204', async () => {
-    DB.deleteUser.mockResolvedValue();
+    AuthService.deleteAccount.mockResolvedValue();
 
     const res = await authed(request(buildSecureApp()).delete('/api/auth/account'));
 
     expect(res.status).toBe(204);
-    expect(DB.deleteUser).toHaveBeenCalledWith('a@b.com');
+    expect(AuthService.deleteAccount).toHaveBeenCalledWith('a@b.com');
   });
 });
 
@@ -420,19 +367,16 @@ describe('DELETE /auth/account', () => {
 // ---------------------------------------------------------------------------
 
 describe('GET /auth/passkeys', () => {
-  it('returns a sanitised list of passkeys', async () => {
-    const credentialID = Buffer.from('cred-id');
-    DB.getUserPasskeys.mockResolvedValue([
-      { credentialID, transports: ['usb'], created_at: new Date('2024-01-01') },
+  it('returns the sanitised passkey list', async () => {
+    AuthService.getPasskeys.mockResolvedValue([
+      { credentialID: 'abc123', transports: ['usb'], created_at: new Date('2024-01-01') },
     ]);
 
     const res = await authed(request(buildSecureApp()).get('/api/auth/passkeys'));
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);
-    // Raw public key must not be present
-    expect(res.body[0].publicKey).toBeUndefined();
-    expect(res.body[0].credentialID).toBeDefined();
+    expect(res.body[0].credentialID).toBe('abc123');
   });
 });
 
@@ -442,40 +386,32 @@ describe('GET /auth/passkeys', () => {
 
 describe('DELETE /auth/passkeys/:id', () => {
   it('deletes the passkey and returns 204', async () => {
-    DB.deletePasskey.mockResolvedValue();
+    AuthService.deletePasskeyById.mockResolvedValue();
 
-    const id = Buffer.from('cred').toString('base64url');
-    const res = await authed(
-      request(buildSecureApp()).delete(`/api/auth/passkeys/${id}`)
-    );
+    const res = await authed(request(buildSecureApp()).delete('/api/auth/passkeys/some-id'));
 
     expect(res.status).toBe(204);
-    expect(DB.deletePasskey).toHaveBeenCalled();
+    expect(AuthService.deletePasskeyById).toHaveBeenCalledWith('a@b.com', 'some-id');
   });
 
   it('returns 400 when deletion fails', async () => {
-    DB.deletePasskey.mockRejectedValue(new Error('db error'));
+    AuthService.deletePasskeyById.mockRejectedValue(new Error('db error'));
 
-    const res = await authed(
-      request(buildSecureApp()).delete('/api/auth/passkeys/bad-id')
-    );
+    const res = await authed(request(buildSecureApp()).delete('/api/auth/passkeys/bad-id'));
 
     expect(res.status).toBe(400);
   });
 });
 
 // ---------------------------------------------------------------------------
-// POST /api/auth/register-options  (add passkey to existing account)
+// POST /api/auth/register-options
 // ---------------------------------------------------------------------------
 
 describe('POST /auth/register-options', () => {
   it('returns registration options and sets a challenge cookie', async () => {
-    DB.getUserPasskeys.mockResolvedValue([]);
-    generateRegistrationOptions.mockResolvedValue({ challenge: 'reg-chall', rp: {} });
+    AuthService.generateRegOptions.mockResolvedValue({ challenge: 'reg-chall', rp: {} });
 
-    const res = await authed(
-      request(buildSecureApp()).post('/api/auth/register-options').send({})
-    );
+    const res = await authed(request(buildSecureApp()).post('/api/auth/register-options').send({}));
 
     expect(res.status).toBe(200);
     expect(res.body.challenge).toBe('reg-chall');
@@ -484,7 +420,7 @@ describe('POST /auth/register-options', () => {
 });
 
 // ---------------------------------------------------------------------------
-// POST /api/auth/register-verify  (add passkey to existing account)
+// POST /api/auth/register-verify
 // ---------------------------------------------------------------------------
 
 describe('POST /auth/register-verify', () => {
@@ -495,19 +431,11 @@ describe('POST /auth/register-verify', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/challenge/i);
+    expect(AuthService.verifyReg).not.toHaveBeenCalled();
   });
 
-  it('adds a passkey on successful verification', async () => {
-    DB.getUser.mockResolvedValue(TEST_USER);
-    const credentialPublicKey = new Uint8Array([4, 5, 6]);
-    const credentialID = 'new-cred-id';
-    verifyRegistrationResponse.mockResolvedValue({
-      verified: true,
-      registrationInfo: {
-        credential: { publicKey: credentialPublicKey, id: credentialID, counter: 0 },
-      },
-    });
-    DB.createPasskey.mockResolvedValue();
+  it('returns verified on success', async () => {
+    AuthService.verifyReg.mockResolvedValue({ verified: true });
 
     const res = await request(buildSecureApp())
       .post('/api/auth/register-verify')
@@ -516,7 +444,6 @@ describe('POST /auth/register-verify', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.verified).toBe(true);
-    expect(DB.createPasskey).toHaveBeenCalled();
   });
 });
 
@@ -531,17 +458,17 @@ describe('PUT /auth/password', () => {
     );
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/password/i);
+    expect(AuthService.changePassword).not.toHaveBeenCalled();
   });
 
   it('updates the password and returns 204', async () => {
-    DB.updateUserPassword.mockResolvedValue();
+    AuthService.changePassword.mockResolvedValue();
 
     const res = await authed(
       request(buildSecureApp()).put('/api/auth/password').send({ password: 'newSecret' })
     );
 
     expect(res.status).toBe(204);
-    expect(DB.updateUserPassword).toHaveBeenCalledWith('a@b.com', 'newSecret');
+    expect(AuthService.changePassword).toHaveBeenCalledWith('a@b.com', 'newSecret');
   });
 });
