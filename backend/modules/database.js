@@ -6,15 +6,15 @@ const userName = process.env.MONGOUSER;
 const password = process.env.MONGOPASSWORD;
 const hostname = process.env.MONGOHOSTNAME;
 
-if (!userName) {
+if (!userName || !password || !hostname || !process.env.DB_NAME) {
   throw Error('Database not configured. Set environment variables');
 }
 
 const url = `mongodb+srv://${encodeURIComponent(userName)}:${encodeURIComponent(password)}@${hostname}`;
 
 const client = new MongoClient(url);
-const userCollection = client.db(process.env.DB_NAME || 'FIDO2').collection('user');
-const passkeyCollection = client.db(process.env.DB_NAME || 'FIDO2').collection('passkeys');
+const userCollection = client.db(process.env.DB_NAME).collection('user');
+const passkeyCollection = client.db(process.env.DB_NAME).collection('passkeys');
 
 function getUser(email) {
   return userCollection.findOne({ email: String(email) });
