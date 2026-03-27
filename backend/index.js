@@ -11,8 +11,7 @@ if (!MONGOUSER || !MONGOPASSWORD || !MONGOHOSTNAME || !DB_NAME) {
 const dbUri = `mongodb+srv://${encodeURIComponent(MONGOUSER)}:${encodeURIComponent(MONGOPASSWORD)}@${MONGOHOSTNAME}`;
 DB.init(dbUri, DB_NAME);
 
-const authRouter = require('./modules/auth.js').router;
-const { secureApiRouter } = require('./modules/auth.js');
+const { router: authRouter, secureApiRouter } = require('./modules/auth.js');
 
 const app = express();
 const port = process.argv.length > 2 ? process.argv[2] : process.env.PORT || 3000;

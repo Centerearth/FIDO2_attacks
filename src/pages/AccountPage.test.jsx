@@ -9,7 +9,7 @@ const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({ useNavigate: () => mockNavigate }));
 
 const mockClearUser = jest.fn();
-let mockUser = { email: 'a@b.com', name: 'Alice' };
+const mockUser = { email: 'a@b.com', name: 'Alice' };
 jest.mock('../context/AuthContext', () => ({
   useAuth: () => ({ user: mockUser, clearUser: mockClearUser }),
 }));
@@ -33,7 +33,6 @@ const { startRegistration } = require('@simplewebauthn/browser');
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockUser = { email: 'a@b.com', name: 'Alice' };
   api.getPasskeys.mockResolvedValue([]);
 });
 
@@ -42,16 +41,6 @@ async function renderPage() {
   render(<AccountPage />);
   await act(async () => {});
 }
-
-// ---------------------------------------------------------------------------
-
-describe('AccountPage — unauthenticated', () => {
-  it('shows a login prompt when user is null', () => {
-    mockUser = null;
-    render(<AccountPage />);
-    expect(screen.getByText(/please log in/i)).toBeInTheDocument();
-  });
-});
 
 // ---------------------------------------------------------------------------
 

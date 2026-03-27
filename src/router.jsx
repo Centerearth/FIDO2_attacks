@@ -6,6 +6,7 @@ import SignUpPage from './pages/SignUpPage';
 import AccountPage from './pages/AccountPage';
 import CartPage from './pages/CartPage';
 import NotFoundPage from './pages/NotFoundPage';
+import ProtectedRoute from './components/ProtectedRoute';
 
 const router = createBrowserRouter([
   {
@@ -25,12 +26,17 @@ const router = createBrowserRouter([
     element: <SignUpPage />,
   },
   {
-    path: '/account',
-    element: <AccountPage />,
-  },
-  {
-    path: '/cart',
-    element: <CartPage />,
+    element: <ProtectedRoute />,
+    children: [
+      {
+        path: '/account',
+        element: <AccountPage />,
+      },
+      {
+        path: '/cart',
+        element: <CartPage />,
+      },
+    ],
   },
   {
     path: '*',

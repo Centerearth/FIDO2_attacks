@@ -1,13 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { useAuth } from '../context/AuthContext';
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState([]);
-  const [checkoutError, setCheckoutError] = useState(null);
-  const { user } = useAuth();
-  const navigate = useNavigate();
 
   useEffect(() => {
     // Load cart items from localStorage on component mount
@@ -18,11 +13,6 @@ export default function CartPage() {
   const cartTotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
 
   const handleCheckout = () => {
-    if (!user) {
-      setCheckoutError('You must be logged in to check out.');
-      return;
-    }
-
     localStorage.removeItem('cart');
     setCartItems([]);
     window.dispatchEvent(new Event('cartUpdated'));
@@ -60,15 +50,7 @@ export default function CartPage() {
                 </tr>
               </tfoot>
             </table>
-            {checkoutError && (
-              <div className="alert alert-danger d-flex justify-content-between align-items-center">
-                <span>{checkoutError}</span>
-                <button className="btn btn-danger btn-sm ms-3" onClick={() => navigate('/login')}>
-                  Log in
-                </button>
-              </div>
-            )}
-            <div className="d-flex justify-content-end">
+<div className="d-flex justify-content-end">
               <button className="btn btn-primary" onClick={handleCheckout}>
                 Check out and purchase
               </button>

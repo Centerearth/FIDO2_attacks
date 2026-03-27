@@ -113,70 +113,66 @@ export default function AccountPage() {
     <Layout>
       <div id="account-main" className="pt-4">
         <h1>Account</h1>
-        {user ? (
-          <div className="mt-4 text-start">
-            <p className="fs-5"><strong>Name:</strong> {user.name}</p>
-            <p className="fs-5"><strong>Email:</strong> {user.email}</p>
+        <div className="mt-4 text-start">
+          <p className="fs-5"><strong>Name:</strong> {user.name}</p>
+          <p className="fs-5"><strong>Email:</strong> {user.email}</p>
 
-            <h4 className="mt-5">Your Passkeys</h4>
-            {passkeys.length > 0 ? (
-              <ul className="list-group mt-3">
-                {passkeys.map((key) => (
-                  <li key={key.credentialID} className="list-group-item d-flex justify-content-between align-items-center">
-                    <div>
-                      {key.credentialID} was registered on {new Date(key.created_at).toLocaleDateString()}
-                      {key.transports && ` (via ${key.transports.join(', ')})`}
-                    </div>
-                    <button
-                      className="btn btn-sm btn-outline-danger"
-                      disabled={passkeyLoading}
-                      onClick={() => handleDeletePasskey(key.credentialID)}
-                    >
-                      Delete
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>You have no passkeys registered.</p>
-            )}
+          <h4 className="mt-5">Your Passkeys</h4>
+          {passkeys.length > 0 ? (
+            <ul className="list-group mt-3">
+              {passkeys.map((key) => (
+                <li key={key.credentialID} className="list-group-item d-flex justify-content-between align-items-center">
+                  <div>
+                    {key.credentialID} was registered on {new Date(key.created_at).toLocaleDateString()}
+                    {key.transports && ` (via ${key.transports.join(', ')})`}
+                  </div>
+                  <button
+                    className="btn btn-sm btn-outline-danger"
+                    disabled={passkeyLoading}
+                    onClick={() => handleDeletePasskey(key.credentialID)}
+                  >
+                    Delete
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>You have no passkeys registered.</p>
+          )}
 
-            <div className="mt-4">
-              <button className="btn btn-primary mt-3" disabled={passkeyLoading} onClick={addPasskey}>
-                {passkeyLoading ? <><span className="spinner-border spinner-border-sm me-2" />Adding...</> : 'Add passkey'}
-              </button>
-            </div>
-
-            <h4 className="mt-5">Update Password</h4>
-            <form className="mt-3" onSubmit={handleChangePassword}>
-              <div className="mb-3" style={{ maxWidth: '400px' }}>
-                <label htmlFor="new-password" className="form-label">New Password</label>
-                <input
-                  id="new-password"
-                  type="password"
-                  className="form-control"
-                  value={newPassword}
-                  onChange={(e) => { setNewPassword(e.target.value); setPasswordMsg(null); }}
-                  placeholder="Enter new password"
-                />
-              </div>
-              {passwordMsg && (
-                <div role="alert" className={`alert alert-${passwordMsg.type} py-2`} style={{ maxWidth: '400px' }}>
-                  {passwordMsg.text}
-                </div>
-              )}
-              <button type="submit" className="btn btn-primary" disabled={passwordLoading}>
-                {passwordLoading ? <><span className="spinner-border spinner-border-sm me-2" />Updating...</> : 'Update Password'}
-              </button>
-            </form>
-
-            <button className="btn btn-danger mt-5" disabled={accountLoading} onClick={deleteAccount}>
-              Delete Account
+          <div className="mt-4">
+            <button className="btn btn-primary mt-3" disabled={passkeyLoading} onClick={addPasskey}>
+              {passkeyLoading ? <><span className="spinner-border spinner-border-sm me-2" />Adding...</> : 'Add passkey'}
             </button>
           </div>
-        ) : (
-          <p className="mt-4">Please log in to view your account details.</p>
-        )}
+
+          <h4 className="mt-5">Update Password</h4>
+          <form className="mt-3" onSubmit={handleChangePassword}>
+            <div className="mb-3" style={{ maxWidth: '400px' }}>
+              <label htmlFor="new-password" className="form-label">New Password</label>
+              <input
+                id="new-password"
+                type="password"
+                className="form-control"
+                value={newPassword}
+                onChange={(e) => { setNewPassword(e.target.value); setPasswordMsg(null); }}
+                placeholder="Enter new password"
+              />
+            </div>
+            {passwordMsg && (
+              <div role="alert" className={`alert alert-${passwordMsg.type} py-2`} style={{ maxWidth: '400px' }}>
+                {passwordMsg.text}
+              </div>
+            )}
+            <button type="submit" className="btn btn-primary" disabled={passwordLoading}>
+              {passwordLoading ? <><span className="spinner-border spinner-border-sm me-2" />Updating...</> : 'Update Password'}
+            </button>
+          </form>
+
+          <button className="btn btn-danger mt-5" disabled={accountLoading} onClick={deleteAccount}>
+            Delete Account
+          </button>
+        </div>
       </div>
 
       {/* Confirmation modal */}

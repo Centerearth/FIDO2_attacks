@@ -27,8 +27,8 @@ export function AuthProvider({ children }) {
 
   // Called for a standard logout
   const logout = async () => {
-    setUser(null);
     await logoutApi();
+    setUser(null);
   };
 
   // Called when user state needs to be cleared without an API call (e.g., after account deletion)
