@@ -42,7 +42,7 @@ app.use((req, res) => {
         res.status(404).send(
             `Cannot ${req.method} ${req.url} <br><br>
             <strong>Development Mode:</strong> You hit the Express backend fallback route. 
-            Make sure you are accessing the Vite server (http://localhost:5173) in your browser.`
+            Make sure you are accessing the Vite server (http://localhost:${process.env.FRONTEND_PORT || 5173}) in your browser.`
         );
     }
 });

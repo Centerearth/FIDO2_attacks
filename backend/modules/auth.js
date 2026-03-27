@@ -11,8 +11,8 @@ const {
 } = require('@simplewebauthn/server');
 
 const rpName = 'Simply Shopping';
-const rpID = 'localhost';
-const origin = `http://${rpID}:5173`;
+const rpID = process.env.RP_ID || 'localhost';
+const origin = process.env.ORIGIN || `http://${rpID}:5173`;
 const authCookieName = 'token';
 const router = express.Router();
 
