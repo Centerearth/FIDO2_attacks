@@ -85,6 +85,14 @@ function deletePasskey(email, credentialIDBuffer) {
   });
 }
 
+async function updateUserPassword(email, newPassword) {
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await userCollection.updateOne(
+    { email: String(email) },
+    { $set: { password: passwordHash } }
+  );
+}
+
 async function refreshUserToken(email) {
   const newToken = crypto.randomUUID();
   await userCollection.updateOne(
@@ -104,6 +112,7 @@ module.exports = {
   getPasskey,
   getUserPasskeys,
   updatePasskeyCounter,
+  updateUserPassword,
   refreshUserToken,
   deletePasskeys,
   deletePasskey

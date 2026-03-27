@@ -51,6 +51,22 @@ export async function getUser() {
   throw new Error(`Failed to fetch user: ${response.status} ${response.statusText}`);
 }
 
+export async function updatePassword(newPassword) {
+  const response = await fetch('/api/auth/password', {
+    method: 'PUT',
+    body: JSON.stringify({ password: newPassword }),
+    headers: { 'Content-type': 'application/json; charset=UTF-8' },
+  });
+  if (!response.ok) {
+    let message = 'Failed to update password';
+    try {
+      const body = await response.json();
+      message = body.error || body.message || body.msg || message;
+    } catch (e) { /* ignore non-JSON error responses */ }
+    throw new Error(message);
+  }
+}
+
 export async function deleteAccount() {
   const response = await fetch('/api/auth/account', { method: 'DELETE' });
   if (!response.ok) {

@@ -293,6 +293,15 @@ secureApiRouter.get('/auth/me', (req, res) => {
   res.send({ email: req.user.email, name: req.user.name });
 });
 
+secureApiRouter.put('/auth/password', async (req, res) => {
+  const { password } = req.body;
+  if (!password) {
+    return res.status(400).send({ error: 'Password is required.' });
+  }
+  await DB.updateUserPassword(req.user.email, password);
+  res.status(204).end();
+});
+
 secureApiRouter.delete('/auth/account', async (req, res) => {
   await DB.deleteUser(req.user.email);
   res.clearCookie(authCookieName);
