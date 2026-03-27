@@ -1,4 +1,4 @@
-# Simply Shopping
+# FIDO2 Attacks / Simply Shopping
 
 A demo e-commerce app (doesn't work at all) built to explore FIDO2/WebAuthn passkey authentication. Will be used in 
 our continued research effort to recreate and find new vulnerabalities with the standards. 
