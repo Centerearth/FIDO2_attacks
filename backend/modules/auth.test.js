@@ -3,6 +3,7 @@ process.env.ORIGIN = 'http://localhost:5173';
 
 //since mocking database.js normally requires the enviornment variables, we instead mock all of the functions
 jest.mock('./database.js', () => ({
+  init: jest.fn(),
   getUser: jest.fn(),
   getUserByToken: jest.fn(),
   createUser: jest.fn(),

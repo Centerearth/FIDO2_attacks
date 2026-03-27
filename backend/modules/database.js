@@ -2,19 +2,14 @@ const { MongoClient } = require('mongodb');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 
-const userName = process.env.MONGOUSER;
-const password = process.env.MONGOPASSWORD;
-const hostname = process.env.MONGOHOSTNAME;
+let userCollection;
+let passkeyCollection;
 
-if (!userName || !password || !hostname || !process.env.DB_NAME) {
-  throw Error('Database not configured. Set environment variables');
+function init(uri, dbName) {
+  const client = new MongoClient(uri);
+  userCollection = client.db(dbName).collection('user');
+  passkeyCollection = client.db(dbName).collection('passkeys');
 }
-
-const url = `mongodb+srv://${encodeURIComponent(userName)}:${encodeURIComponent(password)}@${hostname}`;
-
-const client = new MongoClient(url);
-const userCollection = client.db(process.env.DB_NAME).collection('user');
-const passkeyCollection = client.db(process.env.DB_NAME).collection('passkeys');
 
 function getUser(email) {
   return userCollection.findOne({ email: String(email) });
@@ -102,8 +97,8 @@ async function refreshUserToken(email) {
   return newToken;
 }
 
-
 module.exports = {
+  init,
   getUser,
   getUserByToken,
   createUser,

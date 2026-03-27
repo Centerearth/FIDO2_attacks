@@ -1,9 +1,3 @@
-// Set required env vars before the module is loaded
-process.env.MONGOUSER = 'testuser';
-process.env.MONGOPASSWORD = 'testpassword';
-process.env.MONGOHOSTNAME = 'test.mongodb.net';
-process.env.DB_NAME = 'testdb';
-
 // --- Mocks ---
 
 const mockInsertOne = jest.fn();
@@ -43,6 +37,11 @@ jest.mock('crypto', () => ({
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const DB = require('./database');
+
+// Wire up the mock MongoClient by calling init before any tests run
+beforeAll(() => {
+  DB.init('mongodb://test', 'testdb');
+});
 
 // Reset all mocks between tests
 beforeEach(() => {

@@ -2,6 +2,15 @@ require('dotenv').config();
 const express = require('express');
 const helmet = require('helmet');
 const path = require('path');
+const DB = require('./modules/database.js');
+
+const { MONGOUSER, MONGOPASSWORD, MONGOHOSTNAME, DB_NAME } = process.env;
+if (!MONGOUSER || !MONGOPASSWORD || !MONGOHOSTNAME || !DB_NAME) {
+  throw new Error('Database not configured. Set environment variables');
+}
+const dbUri = `mongodb+srv://${encodeURIComponent(MONGOUSER)}:${encodeURIComponent(MONGOPASSWORD)}@${MONGOHOSTNAME}`;
+DB.init(dbUri, DB_NAME);
+
 const authRouter = require('./modules/auth.js').router;
 const { secureApiRouter } = require('./modules/auth.js');
 

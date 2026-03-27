@@ -13,5 +13,3 @@ Testing
 
 Frontend components are untested. @testing-library/react is installed but unused. The auth flow components (LoginPage, SignUpPage, AccountPage) have meaningful conditional logic worth covering.
 No mongodb-memory-server for database integration tests. The current database tests mock MongoDB entirely. An in-memory MongoDB instance would let you test the actual query logic (filters, $set projections, etc.) without a live connection.
-No coverage thresholds. There's no coverageThreshold in the Jest config, so coverage can silently drop over time.
-Project Hygiene
