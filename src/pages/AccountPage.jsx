@@ -140,7 +140,7 @@ export default function AccountPage() {
                   type="password"
                   className="form-control"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={(e) => { setNewPassword(e.target.value); setPasswordMsg(null); }}
                   placeholder="Enter new password"
                 />
               </div>
