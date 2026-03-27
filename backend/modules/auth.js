@@ -14,6 +14,7 @@ const rpName = 'Simply Shopping';
 const rpID = process.env.RP_ID || 'localhost';
 const origin = process.env.ORIGIN || `http://${rpID}:5173`;
 const authCookieName = 'token';
+const secureCookies = process.env.NODE_ENV === 'production';
 const router = express.Router();
 
 // Use the cookie parser middleware for tracking authentication tokens
@@ -90,7 +91,7 @@ router.post('/auth/authentication-options', async (req, res) => {
 
   res.cookie('webauthn_challenge', options.challenge, {
     httpOnly: true,
-    secure: true,
+    secure: secureCookies,
     sameSite: 'strict',
     maxAge: 300000, // 5 minutes
   });
@@ -196,7 +197,7 @@ router.post('/auth/signup-register-options', async (req, res) => {
 
   res.cookie('webauthn_signup', JSON.stringify(pendingData), {
     httpOnly: true,
-    secure: true,
+    secure: secureCookies,
     sameSite: 'strict',
     maxAge: 300000, // 5 minutes
   });
@@ -359,7 +360,7 @@ secureApiRouter.post('/auth/register-options', async (req, res) => {
 
   res.cookie('webauthn_challenge', options.challenge, {
     httpOnly: true,
-    secure: true,
+    secure: secureCookies,
     sameSite: 'strict',
     maxAge: 300000, // 5 minutes
   });
@@ -424,7 +425,7 @@ secureApiRouter.post('/auth/register-verify', async (req, res) => {
 // setAuthCookie in the HTTP response
 function setAuthCookie(res, authToken) {
   res.cookie(authCookieName, authToken, {
-    secure: true,
+    secure: secureCookies,
     httpOnly: true,
     sameSite: 'strict',
   });

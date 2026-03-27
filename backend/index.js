@@ -1,11 +1,14 @@
 require('dotenv').config();
 const express = require('express');
+const helmet = require('helmet');
 const path = require('path');
 const authRouter = require('./modules/auth.js').router;
 const { secureApiRouter } = require('./modules/auth.js');
 
 const app = express();
 const port = process.argv.length > 2 ? process.argv[2] : process.env.PORT || 3000;
+
+app.use(helmet());
 
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
