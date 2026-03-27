@@ -3,9 +3,7 @@ Notes
 Claude's notes on changes to make
 Consistency & Architecture
 
-Inconsistent error response shape. Some routes return { msg: ... }, others { error: ... }. The frontend api.js handles body.error || body.message || body.msg to compensate. Pick one shape and use it everywhere.
 auth.js is doing too much. Route definitions, business logic, and WebAuthn flows are all in one 400-line file. The WebAuthn flows especially (challenge generation, verification) would benefit from being extracted into a service layer.
-No input validation library. Validation is a series of inline if (!field) checks scattered across routes. A schema validator like zod or joi applied as middleware would centralize this and produce consistent error messages.
 Frontend
 
 alert() and confirm() for user-facing feedback. These are blocking, unstyled browser dialogs. The rest of the UI uses Bootstrap — replacing them with Bootstrap modals or toast notifications would keep the UX consistent.

@@ -10,38 +10,37 @@ export default function LoginPage() {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [errorMsg, setErrorMsg] = useState(null);
 
   async function loginUser() {
+    setErrorMsg(null);
     try {
       const userData = await postAuthRequest('/api/auth/login', { email, password });
       login(userData);
       navigate('/');
     } catch (error) {
-      alert(`⚠ Error: ${error.message}`);
+      setErrorMsg(error.message);
     }
   }
 
   async function loginUserPasskey() {
+    setErrorMsg(null);
     if (!email) {
-      alert('Please enter your email address first to use a passkey.');
+      setErrorMsg('Please enter your email address first to use a passkey.');
       return;
     }
 
     try {
-      // 1. Get options from server
       const options = await postAuthRequest('/api/auth/authentication-options', { email });
       console.log('Received authentication options from server:', options);
-      // 2. Pass options to browser authenticator
       const attResp = await startAuthentication(options);
-
-      // 3. Send response to server for verification
       const verifyResp = await postAuthRequest('/api/auth/authentication-verify', { email, response: attResp });
       if (verifyResp.verified) {
         login({ email: verifyResp.email, name: verifyResp.name });
         navigate('/');
       }
     } catch (e) {
-      alert(`Error logging in with passkey: ${e.message}`);
+      setErrorMsg(`Error logging in with passkey: ${e.message}`);
     }
   }
 
@@ -51,17 +50,14 @@ export default function LoginPage() {
         <div className="card shadow-sm" style={{ width: '25rem' }}>
           <div className="card-body p-4">
             <h1 className="card-title text-center mb-4">Login</h1>
-            <form id="myForm" onSubmit={(e) => {
-              e.preventDefault();
-              loginUser();
-            }}>
+            <form id="myForm" onSubmit={(e) => { e.preventDefault(); loginUser(); }}>
               <div className="form-floating mb-3">
                 <input
                   type="email"
                   id="loginEmail"
                   className="form-control"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); setErrorMsg(null); }}
                   placeholder="name@example.com"
                 />
                 <label htmlFor="loginEmail">Email address</label>
@@ -72,11 +68,16 @@ export default function LoginPage() {
                   id="loginPassword"
                   className="form-control"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); setErrorMsg(null); }}
                   placeholder="Password"
                 />
                 <label htmlFor="loginPassword">Password</label>
               </div>
+              {errorMsg && (
+                <div className="alert alert-danger py-2 mb-3">
+                  {errorMsg}
+                </div>
+              )}
               <button type="submit" className="btn btn-primary w-100 py-2">
                 Sign in
               </button>

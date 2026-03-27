@@ -5,12 +5,25 @@ import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
 import { deleteAccount as deleteAccountApi, postAuthRequest, getPasskeys, deletePasskey, updatePassword } from '../services/api';
 
+const CONFIRM_CLOSED = { show: false, title: '', body: '', onConfirm: null };
+const INFO_CLOSED    = { show: false, title: '', body: '', variant: 'success' };
+
 export default function AccountPage() {
   const navigate = useNavigate();
   const { user, clearUser } = useAuth();
   const [passkeys, setPasskeys] = useState([]);
   const [newPassword, setNewPassword] = useState('');
   const [passwordMsg, setPasswordMsg] = useState(null);
+  const [confirmModal, setConfirmModal] = useState(CONFIRM_CLOSED);
+  const [infoModal, setInfoModal] = useState(INFO_CLOSED);
+
+  function showInfo(title, body, variant = 'success') {
+    setInfoModal({ show: true, title, body, variant });
+  }
+
+  function showConfirm(title, body, onConfirm) {
+    setConfirmModal({ show: true, title, body, onConfirm });
+  }
 
   async function loadPasskeys() {
     try {
@@ -27,26 +40,35 @@ export default function AccountPage() {
     }
   }, [user]);
 
-  async function deleteAccount() {
-    if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
-
-    try {
-      await deleteAccountApi();
-      clearUser();
-      navigate('/');
-    } catch (e) {
-      alert(e.message);
-    }
+  function deleteAccount() {
+    showConfirm(
+      'Delete Account',
+      'Are you sure you want to delete your account? This cannot be undone.',
+      async () => {
+        try {
+          await deleteAccountApi();
+          clearUser();
+          navigate('/');
+        } catch (e) {
+          showInfo('Error', e.message, 'danger');
+        }
+      }
+    );
   }
 
-  async function handleDeletePasskey(id) {
-    if (!confirm('Are you sure you want to delete this passkey?')) return;
-    try {
-      await deletePasskey(id);
-      loadPasskeys();
-    } catch (e) {
-      alert(e.message);
-    }
+  function handleDeletePasskey(id) {
+    showConfirm(
+      'Delete Passkey',
+      'Are you sure you want to delete this passkey?',
+      async () => {
+        try {
+          await deletePasskey(id);
+          loadPasskeys();
+        } catch (e) {
+          showInfo('Error', e.message, 'danger');
+        }
+      }
+    );
   }
 
   async function handleChangePassword(e) {
@@ -62,18 +84,13 @@ export default function AccountPage() {
 
   async function addPasskey() {
     try {
-      // 1. Get options from server
       const options = await postAuthRequest('/api/auth/register-options', {});
-
-      // 2. Pass options to browser authenticator
       const attResp = await startRegistration(options);
-
-      // 3. Send response to server for verification
       await postAuthRequest('/api/auth/register-verify', attResp);
-      alert('Passkey registered successfully!');
+      showInfo('Passkey Added', 'Passkey registered successfully!');
       loadPasskeys();
     } catch (e) {
-      alert(`Error registering passkey: ${e.message}`);
+      showInfo('Error', `Error registering passkey: ${e.message}`, 'danger');
     }
   }
 
@@ -85,7 +102,6 @@ export default function AccountPage() {
           <div className="mt-4 text-start">
             <p className="fs-5"><strong>Name:</strong> {user.name}</p>
             <p className="fs-5"><strong>Email:</strong> {user.email}</p>
-
 
             <h4 className="mt-5">Your Passkeys</h4>
             {passkeys.length > 0 ? (
@@ -114,12 +130,9 @@ export default function AccountPage() {
                 Add passkey
               </button>
             </div>
-            
+
             <h4 className="mt-5">Update Password</h4>
-            <form
-              className="mt-3"
-              onSubmit={handleChangePassword}
-            >
+            <form className="mt-3" onSubmit={handleChangePassword}>
               <div className="mb-3" style={{ maxWidth: '400px' }}>
                 <label htmlFor="new-password" className="form-label">New Password</label>
                 <input
@@ -147,6 +160,62 @@ export default function AccountPage() {
           <p className="mt-4">Please log in to view your account details.</p>
         )}
       </div>
+
+      {/* Confirmation modal */}
+      {confirmModal.show && (
+        <>
+          <div className="modal d-block" tabIndex="-1">
+            <div className="modal-dialog">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">{confirmModal.title}</h5>
+                  <button type="button" className="btn-close" onClick={() => setConfirmModal(CONFIRM_CLOSED)} />
+                </div>
+                <div className="modal-body">
+                  <p>{confirmModal.body}</p>
+                </div>
+                <div className="modal-footer">
+                  <button className="btn btn-secondary" onClick={() => setConfirmModal(CONFIRM_CLOSED)}>
+                    Cancel
+                  </button>
+                  <button
+                    className="btn btn-danger"
+                    onClick={() => { setConfirmModal(CONFIRM_CLOSED); confirmModal.onConfirm(); }}
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="modal-backdrop fade show" />
+        </>
+      )}
+
+      {/* Info / error modal */}
+      {infoModal.show && (
+        <>
+          <div className="modal d-block" tabIndex="-1">
+            <div className="modal-dialog">
+              <div className="modal-content">
+                <div className={`modal-header text-bg-${infoModal.variant}`}>
+                  <h5 className="modal-title">{infoModal.title}</h5>
+                  <button type="button" className="btn-close btn-close-white" onClick={() => setInfoModal(INFO_CLOSED)} />
+                </div>
+                <div className="modal-body">
+                  <p>{infoModal.body}</p>
+                </div>
+                <div className="modal-footer">
+                  <button className="btn btn-secondary" onClick={() => setInfoModal(INFO_CLOSED)}>
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="modal-backdrop fade show" />
+        </>
+      )}
     </Layout>
   );
 }

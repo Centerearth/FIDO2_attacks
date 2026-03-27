@@ -11,10 +11,12 @@ export default function SignUpPage() {
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [errorMsg, setErrorMsg] = useState(null);
 
   async function createUser() {
+    setErrorMsg(null);
     if (!password || password.length < 8) {
-      alert('⚠ Error: Password must be at least 8 characters long');
+      setErrorMsg('Password must be at least 8 characters long.');
       return;
     }
 
@@ -23,34 +25,28 @@ export default function SignUpPage() {
       login(userData);
       navigate('/');
     } catch (error) {
-      alert(`⚠ Error: ${error.message}`);
+      setErrorMsg(error.message);
     }
   }
 
   async function createUserAndPasskey() {
+    setErrorMsg(null);
     if (!email || !userName) {
-      alert('Please enter your email address and name first to use a passkey.');
+      setErrorMsg('Please enter your email address and name first to use a passkey.');
       return;
     }
-    
+
     try {
-      // 1. Get options from server (and set pending user session)
       const options = await postAuthRequest('/api/auth/signup-register-options', { email, name: userName });
-
-      // 2. Pass options to browser authenticator
       const attResp = await startRegistration(options);
-
-      // 3. Send response to server for verification
       const verifyResp = await postAuthRequest('/api/auth/signup-register-verify', attResp);
       if (verifyResp.verified) {
-        alert('Passkey registered successfully!');
         login({ email: verifyResp.email, name: verifyResp.name });
         navigate('/');
       }
     } catch (e) {
-      alert(`Error registering passkey: ${e.message}`);
+      setErrorMsg(`Error registering passkey: ${e.message}`);
     }
-  
   }
 
   return (
@@ -59,17 +55,14 @@ export default function SignUpPage() {
         <div className="card shadow-sm" style={{ width: '25rem' }}>
           <div className="card-body p-4">
             <h1 className="card-title text-center mb-4">Sign Up</h1>
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              createUser();
-            }}>
+            <form onSubmit={(e) => { e.preventDefault(); createUser(); }}>
               <div className="form-floating mb-3">
                 <input
                   type="text"
                   id="signUpName"
                   className="form-control"
                   value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
+                  onChange={(e) => { setUserName(e.target.value); setErrorMsg(null); }}
                   placeholder="John Doe"
                 />
                 <label htmlFor="signUpName">Your Name</label>
@@ -80,7 +73,7 @@ export default function SignUpPage() {
                   id="signUpEmail"
                   className="form-control"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); setErrorMsg(null); }}
                   placeholder="name@example.com"
                 />
                 <label htmlFor="signUpEmail">Email address</label>
@@ -91,11 +84,16 @@ export default function SignUpPage() {
                   id="signUpPassword"
                   className="form-control"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); setErrorMsg(null); }}
                   placeholder="Password"
                 />
                 <label htmlFor="signUpPassword">Password</label>
               </div>
+              {errorMsg && (
+                <div className="alert alert-danger py-2 mb-3">
+                  {errorMsg}
+                </div>
+              )}
               <button type="submit" className="btn btn-primary w-100 py-2">
                 Register
               </button>

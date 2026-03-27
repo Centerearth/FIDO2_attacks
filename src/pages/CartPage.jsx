@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState([]);
+  const [checkoutError, setCheckoutError] = useState(null);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -18,8 +19,7 @@ export default function CartPage() {
 
   const handleCheckout = () => {
     if (!user) {
-      alert('You must be logged in to check out.');
-      navigate('/login');
+      setCheckoutError('You must be logged in to check out.');
       return;
     }
 
@@ -60,6 +60,14 @@ export default function CartPage() {
                 </tr>
               </tfoot>
             </table>
+            {checkoutError && (
+              <div className="alert alert-danger d-flex justify-content-between align-items-center">
+                <span>{checkoutError}</span>
+                <button className="btn btn-danger btn-sm ms-3" onClick={() => navigate('/login')}>
+                  Log in
+                </button>
+              </div>
+            )}
             <div className="d-flex justify-content-end">
               <button className="btn btn-primary" onClick={handleCheckout}>
                 Check out and purchase
