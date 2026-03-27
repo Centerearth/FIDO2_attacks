@@ -25,7 +25,7 @@ router.post('/auth/create', async (req, res) => {
   console.log(`[AUTH] Creating user: ${req.body.email}`);
   if (await DB.getUser(req.body.email)) {
     console.log(`[AUTH] User creation failed: ${req.body.email} already exists`);
-    res.status(409).send({ msg: 'Existing user' });
+    res.status(409).send({ error: 'Existing user' });
   } else {
     const user = await DB.createUser(req.body.name, req.body.email, req.body.password);
     console.log(`[AUTH] User created: ${req.body.email}`);
@@ -48,11 +48,11 @@ router.post('/auth/login', async (req, res) => {
 
   if (!user) {
     console.log(`[AUTH] Login failed: User not found ${req.body.email}`);
-    res.status(401).send({ msg: 'Unauthorized' });
+    res.status(401).send({ error: 'Unauthorized' });
     return;
   } else if (!user.password) {
     console.log(`[AUTH] Login failed: Passkey-only account for ${req.body.email}`);
-    res.status(401).send({ msg: 'Unauthorized: Please use a passkey to sign in' });
+    res.status(401).send({ error: 'Unauthorized: Please use a passkey to sign in' });
     return;
   } else if (password && await bcrypt.compare(password, user.password)) {
     console.log(`[AUTH] Login successful: ${req.body.email}`);
@@ -63,7 +63,7 @@ router.post('/auth/login', async (req, res) => {
   }
 
   console.log(`[AUTH] Login failed: ${req.body.email}`);
-  res.status(401).send({ msg: 'Unauthorized' });
+  res.status(401).send({ error: 'Unauthorized' });
 });
 
 // Generate options for passkey authentication
@@ -130,7 +130,6 @@ router.post('/auth/authentication-verify', async (req, res) => {
   try {
     // Ensure keys are safely extracted into Uint8Arrays for the verification engine
     const publicKeyBuffer = passkey.publicKey.buffer || passkey.publicKey;
-    const credentialIDBuffer = passkey.credentialID.buffer || passkey.credentialID;
 
     verification = await verifyAuthenticationResponse({
       response,
@@ -238,7 +237,7 @@ router.post('/auth/signup-register-verify', async (req, res) => {
 
   if (verified && registrationInfo) {
     const credentialPublicKey = registrationInfo.credential?.publicKey || registrationInfo.credentialPublicKey;
-    const credentialID = registrationInfo.credential?.id || registrationInfo.credentialID;
+    const credentialID = registrationInfo.credential?.id;
     const counter = registrationInfo.credential?.counter ?? registrationInfo.counter;
 
     if (!credentialPublicKey || !credentialID) {
@@ -286,7 +285,7 @@ secureApiRouter.use(async (req, res, next) => {
     next();
   } else {
     console.log(`[AUTH] Unauthorized access attempt to ${req.originalUrl}`);
-    res.status(401).send({ msg: 'Unauthorized' });
+    res.status(401).send({ error: 'Unauthorized' });
   }
 });
 
@@ -396,7 +395,7 @@ secureApiRouter.post('/auth/register-verify', async (req, res) => {
   if (verified && registrationInfo) {
     // SimpleWebAuthn v10+ nests these under `credential`
     const credentialPublicKey = registrationInfo.credential?.publicKey || registrationInfo.credentialPublicKey;
-    const credentialID = registrationInfo.credential?.id || registrationInfo.credentialID;
+    const credentialID = registrationInfo.credential?.id;
     const counter = registrationInfo.credential?.counter ?? registrationInfo.counter;
 
     if (!credentialPublicKey || !credentialID) {

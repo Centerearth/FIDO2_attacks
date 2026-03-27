@@ -30,9 +30,9 @@ app.use('/api', (req, res) => {
 app.use((err, req, res, next) => {
     console.error(err);
     if (process.env.NODE_ENV === 'production') {
-        res.status(500).send({ type: 'InternalServerError', message: 'An unexpected error occurred.' });
+        res.status(500).send({ error: 'An unexpected error occurred.' });
     } else {
-        res.status(500).send({ type: err.name, message: err.message, stack: err.stack });
+        res.status(500).send({ error: err.message, type: err.name, stack: err.stack });
     }
 });
 

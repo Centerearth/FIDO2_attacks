@@ -26,7 +26,7 @@ export async function postAuthRequest(endpoint, data) {
   const body = await response.json();
 
   if (!response.ok) {
-    throw new Error(body.message || body.msg || 'An unknown error occurred');
+    throw new Error(body.error || 'An unknown error occurred');
   }
 
   return body;
@@ -61,7 +61,7 @@ export async function updatePassword(newPassword) {
     let message = 'Failed to update password';
     try {
       const body = await response.json();
-      message = body.error || body.message || body.msg || message;
+      message = body.error || message;
     } catch (e) { /* ignore non-JSON error responses */ }
     throw new Error(message);
   }
@@ -73,7 +73,7 @@ export async function deleteAccount() {
     let message = 'Failed to delete account';
     try {
       const body = await response.json();
-      message = body.message || body.msg || message;
+      message = body.error || message;
     } catch (e) { /* ignore non-JSON error responses */ }
     throw new Error(message);
   }
@@ -96,7 +96,7 @@ export async function deletePasskey(id) {
     let message = 'Failed to delete passkey';
     try {
       const body = await response.json();
-      message = body.error || body.message || body.msg || message;
+      message = body.error || message;
     } catch (e) { /* ignore non-JSON error responses */ }
     throw new Error(message);
   }

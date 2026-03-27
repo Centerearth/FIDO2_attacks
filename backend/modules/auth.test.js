@@ -80,7 +80,7 @@ describe('POST /auth/create', () => {
       .send({ email: 'a@b.com', name: 'Alice', password: 'pw' });
 
     expect(res.status).toBe(409);
-    expect(res.body.msg).toBe('Existing user');
+    expect(res.body.error).toBe('Existing user');
   });
 
   it('creates a new user and returns email + name', async () => {
@@ -120,7 +120,7 @@ describe('POST /auth/login', () => {
       .send({ email: 'a@b.com', password: '' });
 
     expect(res.status).toBe(401);
-    expect(res.body.msg).toMatch(/passkey/i);
+    expect(res.body.error).toMatch(/passkey/i);
   });
 
   it('returns 401 when the password does not match', async () => {
