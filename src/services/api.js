@@ -8,6 +8,16 @@
 
 //the middleman
 
+async function throwIfNotOk(response, fallbackMessage) {
+  if (response.ok) return;
+  let message = fallbackMessage;
+  try {
+    const body = await response.json();
+    message = body.error || fallbackMessage;
+  } catch (e) { /* ignore non-JSON error responses */ }
+  throw new Error(message);
+}
+
 export async function postAuthRequest(endpoint, data) {
   console.log(`[API] POST ${endpoint}`, data);
   const response = await fetch(endpoint, {
@@ -57,26 +67,12 @@ export async function updatePassword(newPassword) {
     body: JSON.stringify({ password: newPassword }),
     headers: { 'Content-type': 'application/json; charset=UTF-8' },
   });
-  if (!response.ok) {
-    let message = 'Failed to update password';
-    try {
-      const body = await response.json();
-      message = body.error || message;
-    } catch (e) { /* ignore non-JSON error responses */ }
-    throw new Error(message);
-  }
+  await throwIfNotOk(response, 'Failed to update password');
 }
 
 export async function deleteAccount() {
   const response = await fetch('/api/auth/account', { method: 'DELETE' });
-  if (!response.ok) {
-    let message = 'Failed to delete account';
-    try {
-      const body = await response.json();
-      message = body.error || message;
-    } catch (e) { /* ignore non-JSON error responses */ }
-    throw new Error(message);
-  }
+  await throwIfNotOk(response, 'Failed to delete account');
 }
 
 export async function getPasskeys() {
@@ -92,12 +88,5 @@ export async function getPasskeys() {
 
 export async function deletePasskey(id) {
   const response = await fetch(`/api/auth/passkeys/${id}`, { method: 'DELETE' });
-  if (!response.ok) {
-    let message = 'Failed to delete passkey';
-    try {
-      const body = await response.json();
-      message = body.error || message;
-    } catch (e) { /* ignore non-JSON error responses */ }
-    throw new Error(message);
-  }
+  await throwIfNotOk(response, 'Failed to delete passkey');
 }
