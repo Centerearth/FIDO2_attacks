@@ -2,6 +2,7 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const DB = require('./database.js');
 const AuthService = require('./authService.js');
+const logger = require('./logger.js');
 
 const authCookieName = 'token';
 const secureCookies = process.env.NODE_ENV === 'production';
@@ -104,7 +105,7 @@ router.post('/auth/signup-register-verify', async (req, res) => {
 });
 
 router.delete('/auth/logout', (_req, res) => {
-  console.log('[AUTH] Logout request');
+  logger.info('Logout');
   res.clearCookie(authCookieName);
   res.status(204).end();
 });
@@ -122,7 +123,7 @@ secureApiRouter.use(async (req, res, next) => {
     req.user = user;
     next();
   } else {
-    console.log(`[AUTH] Unauthorized access attempt to ${req.originalUrl}`);
+    logger.warn({ url: req.originalUrl }, 'Unauthorized access attempt');
     res.status(401).send({ error: 'Unauthorized' });
   }
 });

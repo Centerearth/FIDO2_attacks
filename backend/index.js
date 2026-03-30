@@ -1,7 +1,9 @@
 require('dotenv').config();
 const express = require('express');
 const helmet = require('helmet');
+const pinoHttp = require('pino-http');
 const path = require('path');
+const logger = require('./modules/logger.js');
 const DB = require('./modules/database.js');
 
 const { MONGOUSER, MONGOPASSWORD, MONGOHOSTNAME, DB_NAME } = process.env;
@@ -17,11 +19,7 @@ const app = express();
 const port = process.argv.length > 2 ? process.argv[2] : process.env.PORT || 3000;
 
 app.use(helmet());
-
-app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-    next();
-});
+app.use(pinoHttp({ logger }));
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../dist')));
@@ -35,8 +33,8 @@ app.use('/api', (req, res) => {
 });
 
 // Default error handler
-app.use((err, req, res, next) => {
-    console.error(err);
+app.use((err, _req, res, _next) => {
+    logger.error({ err }, 'Unhandled error');
     if (process.env.NODE_ENV === 'production') {
         res.status(500).send({ error: 'An unexpected error occurred.' });
     } else {
@@ -49,15 +47,14 @@ app.use((req, res) => {
     if (process.env.NODE_ENV === 'production') {
         res.sendFile('index.html', { root: path.join(__dirname, '../dist') });
     } else {
-        // In development, prevent the server from crashing when looking for dist/index.html
         res.status(404).send(
             `Cannot ${req.method} ${req.url} <br><br>
-            <strong>Development Mode:</strong> You hit the Express backend fallback route. 
+            <strong>Development Mode:</strong> You hit the Express backend fallback route.
             Make sure you are accessing the Vite server (http://localhost:${process.env.FRONTEND_PORT || 5173}) in your browser.`
         );
     }
 });
 
-const httpService = app.listen(port, () => {
-    console.log(`Listening on port ${port}`);
+app.listen(port, () => {
+    logger.info(`Listening on port ${port}`);
 });

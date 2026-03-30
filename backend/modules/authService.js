@@ -1,5 +1,6 @@
 const bcrypt = require('bcrypt');
 const DB = require('./database.js');
+const logger = require('./logger.js');
 
 const {
   generateRegistrationOptions,
@@ -25,34 +26,34 @@ function toBase64Url(buffer) {
 }
 
 async function createUser(name, email, password) {
-  console.log(`[AUTH] Creating user: ${email}`);
+  logger.info({ email }, 'Creating user');
   if (await DB.getUser(email)) {
-    console.log(`[AUTH] User creation failed: ${email} already exists`);
+    logger.warn({ email }, 'User creation failed: already exists');
     throw new ServiceError('Existing user', 409);
   }
   const user = await DB.createUser(name, email, password);
-  console.log(`[AUTH] User created: ${email}`);
+  logger.info({ email }, 'User created');
   return user;
 }
 
 async function loginUser(email, password) {
-  console.log(`[AUTH] Login attempt: ${email}`);
+  logger.info({ email }, 'Login attempt');
   const user = await DB.getUser(email);
 
   if (!user) {
-    console.log(`[AUTH] Login failed: User not found ${email}`);
+    logger.warn({ email }, 'Login failed: user not found');
     throw new ServiceError('Unauthorized', 401);
   }
   if (!user.password) {
-    console.log(`[AUTH] Login failed: Passkey-only account for ${email}`);
+    logger.warn({ email }, 'Login failed: passkey-only account');
     throw new ServiceError('Unauthorized: Please use a passkey to sign in', 401);
   }
   if (!password || !(await bcrypt.compare(password, user.password))) {
-    console.log(`[AUTH] Login failed: ${email}`);
+    logger.warn({ email }, 'Login failed: incorrect password');
     throw new ServiceError('Unauthorized', 401);
   }
 
-  console.log(`[AUTH] Login successful: ${email}`);
+  logger.info({ email }, 'Login successful');
   const token = await DB.refreshUserToken(email);
   return { email: user.email, name: user.name, token };
 }
@@ -160,7 +161,7 @@ async function verifySignupReg(body, pendingData) {
   const counter = registrationInfo.credential?.counter ?? registrationInfo.counter;
 
   if (!credentialPublicKey || !credentialID) {
-    console.error('[AUTH] Registration failed: missing key details.');
+    logger.error('Registration failed: missing key details');
     throw new ServiceError('Registration failed: authenticator response missing key details.', 400);
   }
 
@@ -217,7 +218,7 @@ async function verifyReg(body, challenge, email) {
   const counter = registrationInfo.credential?.counter ?? registrationInfo.counter;
 
   if (!credentialPublicKey || !credentialID) {
-    console.error('[AUTH] Registration failed: missing key details.');
+    logger.error('Registration failed: missing key details');
     throw new ServiceError('Registration failed: authenticator response missing key details.', 400);
   }
 

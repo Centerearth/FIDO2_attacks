@@ -1,6 +1,7 @@
 const { MongoClient } = require('mongodb');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
+const logger = require('./logger.js');
 
 let userCollection;
 let passkeyCollection;
@@ -12,16 +13,17 @@ function init(uri, dbName) {
 }
 
 function getUser(email) {
+  logger.debug({ email }, 'DB getUser');
   return userCollection.findOne({ email: String(email) });
 }
 
 function getUserByToken(token) {
+  logger.debug('DB getUserByToken');
   return userCollection.findOne({ token: String(token) });
 }
 
 async function createUser(name, email, password) {
-  console.log(`[DB] Creating user record for ${email}`);
-  // Hash the password only if it is provided
+  logger.debug({ email }, 'DB createUser');
   const passwordHash = password ? await bcrypt.hash(password, 10) : null;
 
   const user = {
@@ -36,7 +38,7 @@ async function createUser(name, email, password) {
 }
 
 async function createPasskey(email, passkeyInfo) {
-  console.log(`[DB] Creating passkey record for ${email}`);
+  logger.debug({ email }, 'DB createPasskey');
   const passkey = {
     email: email,
     credentialID: passkeyInfo.credentialID,
@@ -50,14 +52,17 @@ async function createPasskey(email, passkeyInfo) {
 }
 
 function getPasskey(credentialID) {
+  logger.debug({ credentialID }, 'DB getPasskey');
   return passkeyCollection.findOne({ credentialID: String(credentialID) });
 }
 
 function getUserPasskeys(email) {
+  logger.debug({ email }, 'DB getUserPasskeys');
   return passkeyCollection.find({ email: String(email) }).toArray();
 }
 
 async function updatePasskeyCounter(credentialID, newCounter) {
+  logger.debug({ credentialID, newCounter }, 'DB updatePasskeyCounter');
   await passkeyCollection.updateOne(
     { credentialID: String(credentialID) },
     { $set: { counter: newCounter } }
@@ -65,15 +70,18 @@ async function updatePasskeyCounter(credentialID, newCounter) {
 }
 
 async function deleteUser(email) {
+  logger.debug({ email }, 'DB deleteUser');
   await deletePasskeys(email);
   return userCollection.deleteOne({ email: String(email) });
 }
 
 async function deletePasskeys(email) {
+  logger.debug({ email }, 'DB deletePasskeys');
   return passkeyCollection.deleteMany({ email: String(email) });
 }
 
 async function deletePasskey(email, credentialIDBuffer) {
+  logger.debug({ email }, 'DB deletePasskey');
   return passkeyCollection.deleteOne({
     email: String(email),
     credentialID: credentialIDBuffer
@@ -81,6 +89,7 @@ async function deletePasskey(email, credentialIDBuffer) {
 }
 
 async function updateUserPassword(email, newPassword) {
+  logger.debug({ email }, 'DB updateUserPassword');
   const passwordHash = await bcrypt.hash(newPassword, 10);
   await userCollection.updateOne(
     { email: String(email) },
@@ -89,6 +98,7 @@ async function updateUserPassword(email, newPassword) {
 }
 
 async function refreshUserToken(email) {
+  logger.debug({ email }, 'DB refreshUserToken');
   const newToken = crypto.randomUUID();
   await userCollection.updateOne(
     { email: String(email) },

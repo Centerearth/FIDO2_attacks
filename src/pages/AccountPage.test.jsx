@@ -83,14 +83,14 @@ describe('AccountPage — update password', () => {
   });
 
   it('shows an error message when password update fails', async () => {
-    api.updatePassword.mockRejectedValue(new Error('Password too weak'));
+    api.updatePassword.mockRejectedValue(new Error('Password must be at least 8 characters long.'));
 
     await renderPage();
     fireEvent.change(screen.getByLabelText('New Password'), { target: { value: 'weak' } });
     fireEvent.submit(screen.getByRole('button', { name: 'Update Password' }).closest('form'));
 
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent('Password too weak')
+      expect(screen.getByRole('alert')).toHaveTextContent('Password must be at least 8 characters long.')
     );
   });
 
