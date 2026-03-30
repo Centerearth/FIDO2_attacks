@@ -64,16 +64,16 @@ async function updatePasskeyCounter(credentialID, newCounter) {
   );
 }
 
-function deleteUser(email) {
-  deletePasskeys(email);
+async function deleteUser(email) {
+  await deletePasskeys(email);
   return userCollection.deleteOne({ email: String(email) });
 }
 
-function deletePasskeys(email) {
+async function deletePasskeys(email) {
   return passkeyCollection.deleteMany({ email: String(email) });
 }
 
-function deletePasskey(email, credentialIDBuffer) {
+async function deletePasskey(email, credentialIDBuffer) {
   return passkeyCollection.deleteOne({
     email: String(email),
     credentialID: credentialIDBuffer
