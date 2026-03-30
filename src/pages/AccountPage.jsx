@@ -84,6 +84,10 @@ export default function AccountPage() {
     e.preventDefault();
     setPasswordLoading(true);
     try {
+      if (!newPassword || newPassword.length < 8) {
+        setPasswordMsg({ type: 'danger', text: 'Password must be at least 8 characters long.' });
+        return;
+      }
       await updatePassword(newPassword);
       setNewPassword('');
       setPasswordMsg({ type: 'success', text: 'Password updated successfully.' });
