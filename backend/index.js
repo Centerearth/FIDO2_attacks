@@ -18,7 +18,14 @@ const { router: authRouter, secureApiRouter } = require('./modules/auth.js');
 const app = express();
 const port = process.argv.length > 2 ? process.argv[2] : process.env.PORT || 3000;
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      'img-src': ["'self'", 'data:', 'https://placehold.co'],
+    },
+  },
+}));
 app.use(pinoHttp({ logger }));
 
 app.use(express.json());
