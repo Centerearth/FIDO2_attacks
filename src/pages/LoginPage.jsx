@@ -33,7 +33,7 @@ export default function LoginPage() {
     try {
       const options = await postAuthRequest('/api/auth/authentication-options', { email });
       console.log('Received authentication options from server:', options);
-      const attResp = await startAuthentication(options);
+      const attResp = await startAuthentication({ optionsJSON: options });
       const verifyResp = await postAuthRequest('/api/auth/authentication-verify', { email, response: attResp });
       if (verifyResp.verified) {
         login({ email: verifyResp.email, name: verifyResp.name });
