@@ -3,6 +3,7 @@
 A demo e-commerce app (doesn't work at all) built to explore FIDO2/WebAuthn passkey authentication. Will be used in 
 our continued research effort to recreate and find new vulnerabalities with the standards. 
 Check out the docs folder for Mermaid diagrams of the authentication flows.
+The branch repo-with-passwords includes the same website but with support for passwords.
 An AI generated summary of the rest of the project is below.
 
 
