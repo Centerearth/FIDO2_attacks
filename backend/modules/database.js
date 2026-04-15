@@ -1,5 +1,4 @@
 const { MongoClient } = require('mongodb');
-const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const logger = require('./logger.js');
 
@@ -22,14 +21,11 @@ function getUserByToken(token) {
   return userCollection.findOne({ token: String(token) });
 }
 
-async function createUser(name, email, password) {
+async function createUser(name, email) {
   logger.debug({ email }, 'DB createUser');
-  const passwordHash = password ? await bcrypt.hash(password, 10) : null;
-
   const user = {
     name: name,
     email: email,
-    password: passwordHash,
     token: crypto.randomUUID(),
   };
   await userCollection.insertOne(user);
@@ -88,15 +84,6 @@ async function deletePasskey(email, credentialIDBuffer) {
   });
 }
 
-async function updateUserPassword(email, newPassword) {
-  logger.debug({ email }, 'DB updateUserPassword');
-  const passwordHash = await bcrypt.hash(newPassword, 10);
-  await userCollection.updateOne(
-    { email: String(email) },
-    { $set: { password: passwordHash } }
-  );
-}
-
 async function refreshUserToken(email) {
   logger.debug({ email }, 'DB refreshUserToken');
   const newToken = crypto.randomUUID();
@@ -117,7 +104,6 @@ module.exports = {
   getPasskey,
   getUserPasskeys,
   updatePasskeyCounter,
-  updateUserPassword,
   refreshUserToken,
   deletePasskeys,
   deletePasskey

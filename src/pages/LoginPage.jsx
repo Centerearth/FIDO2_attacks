@@ -9,19 +9,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState(null);
-
-  async function loginUser() {
-    setErrorMsg(null);
-    try {
-      const userData = await postAuthRequest('/api/auth/login', { email, password });
-      login(userData);
-      navigate('/');
-    } catch (error) {
-      setErrorMsg(error.message);
-    }
-  }
 
   async function loginUserPasskey() {
     setErrorMsg(null);
@@ -50,8 +38,8 @@ export default function LoginPage() {
         <div className="card shadow-sm" style={{ width: '25rem' }}>
           <div className="card-body p-4">
             <h1 className="card-title text-center mb-4">Login</h1>
-            <form id="myForm" onSubmit={(e) => { e.preventDefault(); loginUser(); }}>
-              <div className="form-floating mb-3">
+            <form id="myForm" onSubmit={(e) => { e.preventDefault(); loginUserPasskey(); }}>
+              <div className="form-floating mb-4">
                 <input
                   type="email"
                   id="loginEmail"
@@ -62,26 +50,12 @@ export default function LoginPage() {
                 />
                 <label htmlFor="loginEmail">Email address</label>
               </div>
-              <div className="form-floating mb-4">
-                <input
-                  type="password"
-                  id="loginPassword"
-                  className="form-control"
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); setErrorMsg(null); }}
-                  placeholder="Password"
-                />
-                <label htmlFor="loginPassword">Password</label>
-              </div>
               {errorMsg && (
                 <div role="alert" className="alert alert-danger py-2 mb-3">
                   {errorMsg}
                 </div>
               )}
               <button type="submit" className="btn btn-primary w-100 py-2">
-                Sign in
-              </button>
-              <button type="button" className="btn btn-primary w-100 py-2 mt-3" onClick={() => loginUserPasskey()}>
                 Sign in with passkey
               </button>
               <div className="text-center mt-3 d-flex justify-content-center align-items-center">

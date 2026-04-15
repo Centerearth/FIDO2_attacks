@@ -1,4 +1,3 @@
-const bcrypt = require('bcrypt');
 const DB = require('./database.js');
 const logger = require('./logger.js');
 
@@ -23,39 +22,6 @@ class ServiceError extends Error {
 // Converts a MongoDB Binary / Buffer credentialID to base64url string
 function toBase64Url(buffer) {
   return buffer.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
-async function createUser(name, email, password) {
-  logger.info({ email }, 'Creating user');
-  if (await DB.getUser(email)) {
-    logger.warn({ email }, 'User creation failed: already exists');
-    throw new ServiceError('Existing user', 409);
-  }
-  const user = await DB.createUser(name, email, password);
-  logger.info({ email }, 'User created');
-  return user;
-}
-
-async function loginUser(email, password) {
-  logger.info({ email }, 'Login attempt');
-  const user = await DB.getUser(email);
-
-  if (!user) {
-    logger.warn({ email }, 'Login failed: user not found');
-    throw new ServiceError('Unauthorized', 401);
-  }
-  if (!user.password) {
-    logger.warn({ email }, 'Login failed: passkey-only account');
-    throw new ServiceError('Unauthorized: Please use a passkey to sign in', 401);
-  }
-  if (!password || !(await bcrypt.compare(password, user.password))) {
-    logger.warn({ email }, 'Login failed: incorrect password');
-    throw new ServiceError('Unauthorized', 401);
-  }
-
-  logger.info({ email }, 'Login successful');
-  const token = await DB.refreshUserToken(email);
-  return { email: user.email, name: user.name, token };
 }
 
 async function generateAuthOptions(email) {
@@ -165,7 +131,7 @@ async function verifySignupReg(body, pendingData) {
     throw new ServiceError('Registration failed: authenticator response missing key details.', 400);
   }
 
-  const user = await DB.createUser(pendingData.name, pendingData.email, null);
+  const user = await DB.createUser(pendingData.name, pendingData.email);
   await DB.createPasskey(user.email, {
     publicKey: Buffer.from(credentialPublicKey),
     credentialID: typeof credentialID === 'string' ? Buffer.from(credentialID, 'base64url') : Buffer.from(credentialID),
@@ -246,18 +212,12 @@ async function deletePasskeyById(email, id) {
   await DB.deletePasskey(email, credentialIDBuffer);
 }
 
-async function changePassword(email, password) {
-  await DB.updateUserPassword(email, password);
-}
-
 async function deleteAccount(email) {
   await DB.deleteUser(email);
 }
 
 module.exports = {
   ServiceError,
-  createUser,
-  loginUser,
   generateAuthOptions,
   verifyAuth,
   generateSignupRegOptions,
@@ -266,6 +226,5 @@ module.exports = {
   verifyReg,
   getPasskeys,
   deletePasskeyById,
-  changePassword,
   deleteAccount,
 };

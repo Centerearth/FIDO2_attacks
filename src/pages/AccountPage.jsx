@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { startRegistration } from '@simplewebauthn/browser';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
-import { deleteAccount as deleteAccountApi, postAuthRequest, getPasskeys, deletePasskey, updatePassword } from '../services/api';
+import { deleteAccount as deleteAccountApi, postAuthRequest, getPasskeys, deletePasskey } from '../services/api';
 
 const CONFIRM_CLOSED = { show: false, title: '', body: '', onConfirm: null };
 const INFO_CLOSED    = { show: false, title: '', body: '', variant: 'success' };
@@ -12,12 +12,9 @@ export default function AccountPage() {
   const navigate = useNavigate();
   const { user, clearUser } = useAuth();
   const [passkeys, setPasskeys] = useState([]);
-  const [newPassword, setNewPassword] = useState('');
-  const [passwordMsg, setPasswordMsg] = useState(null);
   const [confirmModal, setConfirmModal] = useState(CONFIRM_CLOSED);
   const [infoModal, setInfoModal] = useState(INFO_CLOSED);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
-  const [passwordLoading, setPasswordLoading] = useState(false);
   const [accountLoading, setAccountLoading] = useState(false);
 
   function showInfo(title, body, variant = 'success') {
@@ -80,24 +77,6 @@ export default function AccountPage() {
     );
   }
 
-  async function handleChangePassword(e) {
-    e.preventDefault();
-    setPasswordLoading(true);
-    try {
-      if (!newPassword || newPassword.length < 8) {
-        setPasswordMsg({ type: 'danger', text: 'Password must be at least 8 characters long.' });
-        return;
-      }
-      await updatePassword(newPassword);
-      setNewPassword('');
-      setPasswordMsg({ type: 'success', text: 'Password updated successfully.' });
-    } catch (err) {
-      setPasswordMsg({ type: 'danger', text: err.message });
-    } finally {
-      setPasswordLoading(false);
-    }
-  }
-
   async function addPasskey() {
     setPasskeyLoading(true);
     try {
@@ -149,29 +128,6 @@ export default function AccountPage() {
               {passkeyLoading ? <><span className="spinner-border spinner-border-sm me-2" />Adding...</> : 'Add passkey'}
             </button>
           </div>
-
-          <h4 className="mt-5">Update Password</h4>
-          <form className="mt-3" onSubmit={handleChangePassword}>
-            <div className="mb-3" style={{ maxWidth: '400px' }}>
-              <label htmlFor="new-password" className="form-label">New Password</label>
-              <input
-                id="new-password"
-                type="password"
-                className="form-control"
-                value={newPassword}
-                onChange={(e) => { setNewPassword(e.target.value); setPasswordMsg(null); }}
-                placeholder="Enter new password"
-              />
-            </div>
-            {passwordMsg && (
-              <div role="alert" className={`alert alert-${passwordMsg.type} py-2`} style={{ maxWidth: '400px' }}>
-                {passwordMsg.text}
-              </div>
-            )}
-            <button type="submit" className="btn btn-primary" disabled={passwordLoading}>
-              {passwordLoading ? <><span className="spinner-border spinner-border-sm me-2" />Updating...</> : 'Update Password'}
-            </button>
-          </form>
 
           <button className="btn btn-danger mt-5" disabled={accountLoading} onClick={deleteAccount}>
             Delete Account

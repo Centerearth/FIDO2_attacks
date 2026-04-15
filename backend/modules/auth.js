@@ -21,26 +21,6 @@ const CHALLENGE_COOKIE_OPTS = {
 // Public routes
 // ---------------------------------------------------------------------------
 
-router.post('/auth/create', async (req, res) => {
-  try {
-    const user = await AuthService.createUser(req.body.name, req.body.email, req.body.password);
-    setAuthCookie(res, user.token);
-    res.send({ email: user.email, name: user.name });
-  } catch (e) {
-    res.status(e.status || 500).send({ error: e.message });
-  }
-});
-
-router.post('/auth/login', async (req, res) => {
-  try {
-    const result = await AuthService.loginUser(req.body.email, req.body.password || '');
-    setAuthCookie(res, result.token);
-    res.send({ email: result.email, name: result.name });
-  } catch (e) {
-    res.status(e.status || 500).send({ error: e.message });
-  }
-});
-
 router.post('/auth/authentication-options', async (req, res) => {
   const { email } = req.body;
   if (!email) {
@@ -130,19 +110,6 @@ secureApiRouter.use(async (req, res, next) => {
 
 secureApiRouter.get('/auth/me', (req, res) => {
   res.send({ email: req.user.email, name: req.user.name });
-});
-
-secureApiRouter.put('/auth/password', async (req, res) => {
-  const { password } = req.body;
-  if (!password) {
-    return res.status(400).send({ error: 'Password is required.' });
-  }
-  try {
-    await AuthService.changePassword(req.user.email, password);
-    res.status(204).end();
-  } catch (e) {
-    res.status(e.status || 500).send({ error: e.message });
-  }
 });
 
 secureApiRouter.delete('/auth/account', async (req, res) => {

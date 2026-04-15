@@ -10,24 +10,7 @@ export default function SignUpPage() {
   const { login } = useAuth();
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState(null);
-
-  async function createUser() {
-    setErrorMsg(null);
-    if (!password || password.length < 8) {
-      setErrorMsg('Password must be at least 8 characters long.');
-      return;
-    }
-
-    try {
-      const userData = await postAuthRequest('/api/auth/create', { name: userName, email, password });
-      login(userData);
-      navigate('/');
-    } catch (error) {
-      setErrorMsg(error.message);
-    }
-  }
 
   async function createUserAndPasskey() {
     setErrorMsg(null);
@@ -55,7 +38,7 @@ export default function SignUpPage() {
         <div className="card shadow-sm" style={{ width: '25rem' }}>
           <div className="card-body p-4">
             <h1 className="card-title text-center mb-4">Sign Up</h1>
-            <form onSubmit={(e) => { e.preventDefault(); createUser(); }}>
+            <form onSubmit={(e) => { e.preventDefault(); createUserAndPasskey(); }}>
               <div className="form-floating mb-3">
                 <input
                   type="text"
@@ -67,7 +50,7 @@ export default function SignUpPage() {
                 />
                 <label htmlFor="signUpName">Your Name</label>
               </div>
-              <div className="form-floating mb-3">
+              <div className="form-floating mb-4">
                 <input
                   type="email"
                   id="signUpEmail"
@@ -78,26 +61,12 @@ export default function SignUpPage() {
                 />
                 <label htmlFor="signUpEmail">Email address</label>
               </div>
-              <div className="form-floating mb-4">
-                <input
-                  type="password"
-                  id="signUpPassword"
-                  className="form-control"
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); setErrorMsg(null); }}
-                  placeholder="Password"
-                />
-                <label htmlFor="signUpPassword">Password</label>
-              </div>
               {errorMsg && (
                 <div role="alert" className="alert alert-danger py-2 mb-3">
                   {errorMsg}
                 </div>
               )}
               <button type="submit" className="btn btn-primary w-100 py-2">
-                Register
-              </button>
-              <button type="button" className="btn btn-primary w-100 py-2 mt-3" onClick={() => createUserAndPasskey()}>
                 Sign up with passkey
               </button>
               <div className="text-center mt-3 d-flex justify-content-center align-items-center">
