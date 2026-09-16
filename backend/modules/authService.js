@@ -32,6 +32,16 @@ const ATTESTATION_TYPE = process.env.ATTESTATION === 'none' ? 'none' : 'direct';
  */
 const REAUTH_WINDOW_MS = Number(process.env.REAUTH_WINDOW_MS) || 300000; // 5 minutes
 
+/**
+ * Whether registration demands a discoverable credential (a "resident key").
+ *
+ * 'required' is what lets someone sign in with nothing but their passkey. A few
+ * older security keys cannot store discoverable credentials, so
+ * RESIDENT_KEY=preferred falls back to letting them register a
+ * non-discoverable credential, which then needs an email at sign-in.
+ */
+const RESIDENT_KEY = process.env.RESIDENT_KEY === 'preferred' ? 'preferred' : 'required';
+
 const MIN_PASSWORD_LENGTH = 8;
 
 /**
@@ -88,6 +98,22 @@ class ServiceError extends Error {
 // Converts a MongoDB Binary / Buffer credentialID to base64url string
 function toBase64Url(buffer) {
   return buffer.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+/**
+ * Decodes the user handle an authenticator returns during a discoverable
+ * sign-in. Registration sets `userID` to the account's email bytes, so this
+ * reads back as the email.
+ *
+ * @param {string} userHandle - base64url as sent by the browser.
+ * @returns {string|null} the decoded handle, or null if it is not readable.
+ */
+function decodeUserHandle(userHandle) {
+  try {
+    return Buffer.from(userHandle, 'base64url').toString('utf8');
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -152,7 +178,27 @@ async function changePassword(email, password) {
 // Passkey sign-in
 // ---------------------------------------------------------------------------
 
+/**
+ * Builds sign-in options.
+ *
+ * With no email this is a discoverable-credential ceremony: `allowCredentials`
+ * is left off entirely, so the authenticator offers whichever passkeys it holds
+ * for this site and the user picks one. The account is then identified from the
+ * credential itself, so the user never types a username.
+ *
+ * An email may still be passed, which narrows the ceremony to that account's
+ * credentials and keeps older, non-discoverable passkeys working.
+ *
+ * @param {string} [email]
+ */
 async function generateAuthOptions(email) {
+  if (!email) {
+    return generateAuthenticationOptions({
+      rpID,
+      userVerification: 'preferred',
+    });
+  }
+
   const user = await DB.getUser(email);
   if (!user) {
     throw new ServiceError('User not found.', 404);
@@ -174,17 +220,55 @@ async function generateAuthOptions(email) {
  * assertion against the user's stored credentials and bumps the signature
  * counter. Returns the passkey that signed.
  */
-async function verifyAssertion(email, response, challenge) {
-  const user = await DB.getUser(email);
-  if (!user) {
-    throw new ServiceError('User not found.', 404);
+/**
+ * Finds the passkey an assertion was signed with, and the account it belongs to.
+ *
+ * With an email, the passkey must be one of that account's. Without one this is
+ * a discoverable-credential sign-in, so the credential ID identifies the
+ * account by itself.
+ */
+async function resolveAssertionCredential(email, response) {
+  if (email) {
+    const user = await DB.getUser(email);
+    if (!user) {
+      throw new ServiceError('User not found.', 404);
+    }
+    const userPasskeys = await DB.getUserPasskeys(email);
+    const passkey = userPasskeys.find((pk) => toBase64Url(pk.credentialID) === response.id);
+    if (!passkey) {
+      throw new ServiceError('Could not find a matching passkey for this user.', 400);
+    }
+    return { user, passkey };
   }
 
-  const userPasskeys = await DB.getUserPasskeys(email);
-  const passkey = userPasskeys.find((pk) => toBase64Url(pk.credentialID) === response.id);
-  if (!passkey) {
-    throw new ServiceError('Could not find a matching passkey for this user.', 400);
+  if (!response || typeof response.id !== 'string') {
+    throw new ServiceError('Authentication response is missing a credential ID.', 400);
   }
+
+  const passkey = await DB.getPasskeyByCredentialID(parseCredentialId(response.id));
+  if (!passkey) {
+    throw new ServiceError('That passkey is not registered here.', 400);
+  }
+
+  const user = await DB.getUser(passkey.email);
+  if (!user) {
+    // A passkey whose account is gone; treat it as unusable rather than 500.
+    throw new ServiceError('That passkey is not registered here.', 400);
+  }
+
+  // When the authenticator reports a user handle it must agree with the account
+  // the credential is filed under, so a mismatched pair cannot sign anyone in.
+  const userHandle = response.response?.userHandle;
+  if (userHandle && decodeUserHandle(userHandle) !== user.email) {
+    logger.warn({ email: user.email }, 'Assertion user handle did not match the credential owner');
+    throw new ServiceError('That passkey does not match the account it belongs to.', 400);
+  }
+
+  return { user, passkey };
+}
+
+async function verifyAssertion(email, response, challenge) {
+  const { user, passkey } = await resolveAssertionCredential(email, response);
 
   const publicKeyBuffer = passkey.publicKey.buffer || passkey.publicKey;
   let verification;
@@ -234,9 +318,14 @@ async function generateSignupRegOptions(email, name) {
     rpID,
     userID: new Uint8Array(Buffer.from(email)),
     userName: email,
+    // Shown in the authenticator's account chooser at sign-in time.
+    userDisplayName: name || email,
     attestationType: ATTESTATION_TYPE,
     authenticatorSelection: {
-      residentKey: 'preferred',
+      // Discoverable, so the passkey alone identifies the account and the user
+      // never has to type a username to sign in.
+      residentKey: RESIDENT_KEY,
+      requireResidentKey: RESIDENT_KEY === 'required',
       userVerification: 'preferred',
     },
   });
@@ -307,19 +396,24 @@ async function verifySignupReg(body, pendingData) {
 }
 
 async function generateRegOptions(email) {
-  const userPasskeys = await DB.getUserPasskeys(email);
+  const [user, userPasskeys] = await Promise.all([
+    DB.getUser(email),
+    DB.getUserPasskeys(email),
+  ]);
   return generateRegistrationOptions({
     rpName,
     rpID,
     userID: new Uint8Array(Buffer.from(email)),
     userName: email,
+    userDisplayName: user?.name || email,
     attestationType: ATTESTATION_TYPE,
     excludeCredentials: userPasskeys.filter((pk) => pk.credentialID).map((pk) => ({
       id: toBase64Url(pk.credentialID),
       transports: pk.transports,
     })),
     authenticatorSelection: {
-      residentKey: 'preferred',
+      residentKey: RESIDENT_KEY,
+      requireResidentKey: RESIDENT_KEY === 'required',
       userVerification: 'preferred',
     },
   });
@@ -509,6 +603,8 @@ module.exports = {
   REAUTH_WINDOW_MS,
   REAUTH_OPERATIONS,
   ATTESTATION_TYPE,
+  RESIDENT_KEY,
+  decodeUserHandle,
   MIN_PASSWORD_LENGTH,
   createUser,
   loginUser,

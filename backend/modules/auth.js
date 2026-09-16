@@ -45,11 +45,11 @@ router.post('/auth/login', async (req, res) => {
   }
 });
 
+// Email is optional. Without it this is a discoverable-credential ceremony:
+// the authenticator offers the passkeys it holds and the user picks one, so
+// nothing has to be typed to sign in.
 router.post('/auth/authentication-options', async (req, res) => {
-  const { email } = req.body;
-  if (!email) {
-    return res.status(400).send({ error: 'Email is required to log in.' });
-  }
+  const { email } = req.body || {};
   try {
     const options = await AuthService.generateAuthOptions(email);
     res.cookie('webauthn_challenge', options.challenge, CHALLENGE_COOKIE_OPTS);
@@ -60,9 +60,9 @@ router.post('/auth/authentication-options', async (req, res) => {
 });
 
 router.post('/auth/authentication-verify', async (req, res) => {
-  const { email, response } = req.body;
-  if (!email || !response) {
-    return res.status(400).send({ error: 'Email and authentication response are required.' });
+  const { email, response } = req.body || {};
+  if (!response) {
+    return res.status(400).send({ error: 'An authentication response is required.' });
   }
   const challenge = req.cookies.webauthn_challenge;
   if (!challenge) {

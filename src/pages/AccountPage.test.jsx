@@ -384,3 +384,43 @@ describe('AccountPage — reauthentication', () => {
     expect(api.deletePasskey).toHaveBeenCalledTimes(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+
+describe('AccountPage — leftover credential notice', () => {
+  // A website cannot remove a credential from an authenticator, so the user has
+  // to be told to clean it up where it actually lives.
+  it('warns in the confirmation that a copy stays on the device', async () => {
+    api.getPasskeys.mockResolvedValue([PASSKEY]);
+
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Delete Apple Passwords/ }));
+
+    expect(screen.getByText(/copy stays on your device or password manager/i)).toBeInTheDocument();
+  });
+
+  it('tells the user where to delete it after a successful deletion', async () => {
+    api.getPasskeys.mockResolvedValue([PASSKEY]);
+    api.deletePasskey.mockResolvedValue();
+
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Delete Apple Passwords/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => expect(screen.getByText('Passkey Deleted')).toBeInTheDocument());
+    expect(screen.getByText(/still saved in your password manager or device settings/i)).toBeInTheDocument();
+    expect(screen.getByText(/Google Password Manager/)).toBeInTheDocument();
+  });
+
+  it('does not claim success when the deletion failed', async () => {
+    api.getPasskeys.mockResolvedValue([PASSKEY]);
+    api.deletePasskey.mockRejectedValue(new Error('Passkey not found.'));
+
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Delete Apple Passwords/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => expect(screen.getByText('Passkey not found.')).toBeInTheDocument());
+    expect(screen.queryByText('Passkey Deleted')).not.toBeInTheDocument();
+  });
+});

@@ -353,3 +353,25 @@ describe('reauthentication window', () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+
+describe('getPasskeyByCredentialID', () => {
+  // Discoverable sign-in has no email to scope the query, so the credential ID
+  // has to be matched on its own, as a Buffer rather than a stringified one.
+  it('looks the passkey up by its raw credential ID across all accounts', async () => {
+    const credBuf = Buffer.from('cred-id');
+    mockFindOne.mockResolvedValue({ email: 'a@b.com', credentialID: credBuf });
+
+    const found = await DB.getPasskeyByCredentialID(credBuf);
+
+    expect(mockFindOne).toHaveBeenCalledWith({ credentialID: credBuf });
+    expect(found.email).toBe('a@b.com');
+  });
+
+  it('returns null for an unknown credential', async () => {
+    mockFindOne.mockResolvedValue(null);
+
+    expect(await DB.getPasskeyByCredentialID(Buffer.from('nope'))).toBeNull();
+  });
+});

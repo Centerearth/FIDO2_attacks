@@ -34,3 +34,27 @@ reauthentication in place they could not even reauthenticate to add a replacemen
 
 The reauth ceremony uses its own challenge cookie (webauthn_reauth_challenge) so that
 starting a reauthentication mid-registration cannot clobber the registration challenge.
+
+
+Discoverable credentials
+
+Registration now asks for residentKey 'required', so the credential is stored on the
+authenticator and sign-in needs no username. Sign-in options are issued with no
+allowCredentials at all, and the account is found from the credential ID via
+getPasskeyByCredentialID. RESIDENT_KEY=preferred backs this out for old security keys.
+
+The user handle is still the account email in plaintext bytes (userID = Buffer.from(email)).
+With discoverable credentials that handle now travels back to us on every sign-in, and it is
+also sitting on the authenticator. Anyone who can read the assertion sees the email. Worth
+swapping for an opaque per-user identifier at some point - it would not break existing
+credentials because lookup is by credential ID, only the handle cross-check would need a
+migration.
+
+Deleting a passkey only removes our record of it. The credential stays on the device, so a
+user can still pick it in a discoverable ceremony and gets "That passkey is not registered
+here." Surfaced this while testing with Chrome virtual authenticators, where the deleted
+credential kept being offered.
+
+Conditional UI (autofill) starts a second ceremony on page load. simplewebauthn's
+WebAuthnAbortService cancels it when the button starts its own, so the two do not collide;
+the aborted one is swallowed rather than shown as an error.

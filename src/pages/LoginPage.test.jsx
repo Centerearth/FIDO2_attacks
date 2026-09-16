@@ -21,13 +21,16 @@ jest.mock('../services/api.js', () => ({
 
 jest.mock('@simplewebauthn/browser', () => ({
   startAuthentication: jest.fn(),
+  browserSupportsWebAuthnAutofill: jest.fn(),
 }));
 
 const { postAuthRequest } = require('../services/api.js');
-const { startAuthentication } = require('@simplewebauthn/browser');
+const { startAuthentication, browserSupportsWebAuthnAutofill } = require('@simplewebauthn/browser');
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // Default: no conditional UI, so each test drives the flow it is testing.
+  browserSupportsWebAuthnAutofill.mockResolvedValue(false);
 });
 
 // ---------------------------------------------------------------------------
@@ -93,14 +96,22 @@ describe('LoginPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 
-  it('shows an error when passkey button is clicked with no email', async () => {
+  it('signs in with a passkey and no email at all', async () => {
+    postAuthRequest
+      .mockResolvedValueOnce({ challenge: 'ch' })
+      .mockResolvedValueOnce({ verified: true, email: 'a@b.com', name: 'Alice' });
+    startAuthentication.mockResolvedValue({ id: 'cred' });
+
     render(<LoginPage />);
     fireEvent.click(screen.getByRole('button', { name: 'Sign in with passkey' }));
 
-    await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent('Please enter your email address first')
-    );
-    expect(postAuthRequest).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'));
+    // No email typed, so none is sent: the credential identifies the account.
+    expect(postAuthRequest).toHaveBeenNthCalledWith(1, '/api/auth/authentication-options', {});
+    expect(postAuthRequest).toHaveBeenNthCalledWith(2, '/api/auth/authentication-verify', {
+      response: { id: 'cred' },
+    });
+    expect(mockLogin).toHaveBeenCalledWith({ email: 'a@b.com', name: 'Alice' });
   });
 
   it('shows an error when passkey authentication fails', async () => {
@@ -130,9 +141,77 @@ describe('LoginPage', () => {
     expect(mockLogin).toHaveBeenCalledWith({ email: 'a@b.com', name: 'Alice' });
   });
 
+  // A typed email still narrows the ceremony, which keeps any older
+  // non-discoverable passkey working.
+  it('sends the email when the user typed one', async () => {
+    postAuthRequest
+      .mockResolvedValueOnce({ challenge: 'ch' })
+      .mockResolvedValueOnce({ verified: true, email: 'a@b.com', name: 'Alice' });
+    startAuthentication.mockResolvedValue({ id: 'cred' });
+
+    render(<LoginPage />);
+    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'a@b.com' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in with passkey' }));
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'));
+    expect(postAuthRequest).toHaveBeenNthCalledWith(1, '/api/auth/authentication-options', { email: 'a@b.com' });
+    expect(postAuthRequest).toHaveBeenNthCalledWith(2, '/api/auth/authentication-verify', {
+      email: 'a@b.com',
+      response: { id: 'cred' },
+    });
+  });
+
+  it('marks the email field so browsers can offer passkeys in autofill', () => {
+    render(<LoginPage />);
+    expect(screen.getByLabelText('Email address')).toHaveAttribute('autocomplete', 'username webauthn');
+  });
+
   it('navigates to sign-up when the Sign up button is clicked', () => {
     render(<LoginPage />);
     fireEvent.click(screen.getByRole('button', { name: 'Sign up' }));
     expect(mockNavigate).toHaveBeenCalledWith('/sign-up');
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('LoginPage — browser autofill (conditional UI)', () => {
+  it('offers passkeys through autofill when the browser supports it', async () => {
+    browserSupportsWebAuthnAutofill.mockResolvedValue(true);
+    postAuthRequest
+      .mockResolvedValueOnce({ challenge: 'ch' })
+      .mockResolvedValueOnce({ verified: true, email: 'a@b.com', name: 'Alice' });
+    startAuthentication.mockResolvedValue({ id: 'cred' });
+
+    render(<LoginPage />);
+
+    await waitFor(() => expect(startAuthentication).toHaveBeenCalled());
+    expect(startAuthentication).toHaveBeenCalledWith(
+      expect.objectContaining({ useBrowserAutofill: true })
+    );
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'));
+  });
+
+  it('does not start a ceremony when the browser cannot do autofill', async () => {
+    browserSupportsWebAuthnAutofill.mockResolvedValue(false);
+
+    render(<LoginPage />);
+    await waitFor(() => expect(browserSupportsWebAuthnAutofill).toHaveBeenCalled());
+
+    expect(startAuthentication).not.toHaveBeenCalled();
+  });
+
+  // The autofill ceremony is a background offer. If the user ignores it, or it
+  // is superseded by the button, that must not surface as an error.
+  it('stays silent when the autofill ceremony fails', async () => {
+    browserSupportsWebAuthnAutofill.mockResolvedValue(true);
+    postAuthRequest.mockResolvedValueOnce({ challenge: 'ch' });
+    startAuthentication.mockRejectedValue(new Error('AbortError'));
+
+    render(<LoginPage />);
+    await waitFor(() => expect(startAuthentication).toHaveBeenCalled());
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 });

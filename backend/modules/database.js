@@ -60,6 +60,21 @@ function getPasskey(credentialID) {
   return passkeyCollection.findOne({ credentialID: String(credentialID) });
 }
 
+/**
+ * Finds a passkey by its raw credential ID, across every account.
+ *
+ * This is what makes discoverable credentials work: at sign-in the browser
+ * hands us a credential ID and no username, so the account has to be found
+ * from the credential rather than the other way round.
+ *
+ * @param {Buffer} credentialIDBuffer
+ * @returns {Promise<object|null>}
+ */
+function getPasskeyByCredentialID(credentialIDBuffer) {
+  logger.debug('DB getPasskeyByCredentialID');
+  return passkeyCollection.findOne({ credentialID: credentialIDBuffer });
+}
+
 function getUserPasskeys(email) {
   logger.debug({ email }, 'DB getUserPasskeys');
   return passkeyCollection.find({ email: String(email) }).toArray();
@@ -162,6 +177,7 @@ module.exports = {
   deleteUser,
   createPasskey,
   getPasskey,
+  getPasskeyByCredentialID,
   getUserPasskeys,
   updatePasskeyCounter,
   renamePasskey,

@@ -169,13 +169,13 @@ describe('POST /auth/login', () => {
 // ---------------------------------------------------------------------------
 
 describe('POST /auth/authentication-options', () => {
-  it('returns 400 when email is missing', async () => {
-    const res = await request(buildPublicApp())
-      .post('/api/auth/authentication-options')
-      .send({});
+  it('issues discoverable-credential options when no email is given', async () => {
+    AuthService.generateAuthOptions.mockResolvedValue({ challenge: 'ch' });
 
-    expect(res.status).toBe(400);
-    expect(AuthService.generateAuthOptions).not.toHaveBeenCalled();
+    const res = await request(buildPublicApp()).post('/api/auth/authentication-options').send({});
+
+    expect(res.status).toBe(200);
+    expect(AuthService.generateAuthOptions).toHaveBeenCalledWith(undefined);
   });
 
   it('returns 404 when the service throws a 404 ServiceError', async () => {

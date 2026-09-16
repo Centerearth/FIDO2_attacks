@@ -9,6 +9,7 @@ jest.mock('./database.js', () => ({
   deleteUser: jest.fn(),
   createPasskey: jest.fn(),
   getPasskey: jest.fn(),
+  getPasskeyByCredentialID: jest.fn(),
   getUserPasskeys: jest.fn(),
   updatePasskeyCounter: jest.fn(),
   updateUserPassword: jest.fn(),
@@ -717,5 +718,148 @@ describe('isReauthRequired', () => {
 
   it('does not gate an unknown operation', () => {
     expect(AuthService.isReauthRequired('browse-catalogue')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Discoverable credentials (usernameless sign-in)
+// ---------------------------------------------------------------------------
+
+describe('generateAuthOptions — discoverable', () => {
+  it('omits allowCredentials when no email is given', async () => {
+    generateAuthenticationOptions.mockResolvedValue({ challenge: 'ch' });
+
+    await AuthService.generateAuthOptions();
+
+    const opts = generateAuthenticationOptions.mock.calls[0][0];
+    expect(opts.allowCredentials).toBeUndefined();
+    expect(opts.rpID).toBe('localhost');
+    // No account is looked up, because we do not know one yet.
+    expect(DB.getUser).not.toHaveBeenCalled();
+  });
+
+  it('still narrows to one account when an email is given', async () => {
+    DB.getUser.mockResolvedValue(TEST_USER);
+    DB.getUserPasskeys.mockResolvedValue([{ credentialID: Buffer.from('cred'), transports: ['usb'] }]);
+    generateAuthenticationOptions.mockResolvedValue({ challenge: 'ch' });
+
+    await AuthService.generateAuthOptions('a@b.com');
+
+    expect(generateAuthenticationOptions.mock.calls[0][0].allowCredentials).toHaveLength(1);
+  });
+});
+
+describe('verifyAuth — discoverable', () => {
+  const credentialID = Buffer.from('cred');
+  const credId = credentialID.toString('base64url');
+
+  function assertionVerifies() {
+    verifyAuthenticationResponse.mockResolvedValue({
+      verified: true,
+      authenticationInfo: { newCounter: 1 },
+    });
+    DB.updatePasskeyCounter.mockResolvedValue();
+    DB.refreshUserToken.mockResolvedValue('new-token');
+  }
+
+  it('identifies the account from the credential alone', async () => {
+    DB.getPasskeyByCredentialID.mockResolvedValue({
+      email: 'a@b.com', credentialID, publicKey: Buffer.from('pk'), counter: 0,
+    });
+    DB.getUser.mockResolvedValue(TEST_USER);
+    assertionVerifies();
+
+    const result = await AuthService.verifyAuth(undefined, { id: credId, response: {} }, 'ch');
+
+    expect(DB.getPasskeyByCredentialID).toHaveBeenCalledWith(credentialID);
+    expect(result).toEqual({ verified: true, email: 'a@b.com', name: 'Alice', token: 'new-token' });
+  });
+
+  it('accepts a user handle that matches the credential owner', async () => {
+    DB.getPasskeyByCredentialID.mockResolvedValue({
+      email: 'a@b.com', credentialID, publicKey: Buffer.from('pk'), counter: 0,
+    });
+    DB.getUser.mockResolvedValue(TEST_USER);
+    assertionVerifies();
+
+    const userHandle = Buffer.from('a@b.com').toString('base64url');
+    const result = await AuthService.verifyAuth(undefined, { id: credId, response: { userHandle } }, 'ch');
+
+    expect(result.verified).toBe(true);
+  });
+
+  // A credential must not be usable to sign in as a different account.
+  it('rejects a user handle that names a different account', async () => {
+    DB.getPasskeyByCredentialID.mockResolvedValue({
+      email: 'a@b.com', credentialID, publicKey: Buffer.from('pk'), counter: 0,
+    });
+    DB.getUser.mockResolvedValue(TEST_USER);
+
+    const userHandle = Buffer.from('attacker@evil.com').toString('base64url');
+
+    await expect(AuthService.verifyAuth(undefined, { id: credId, response: { userHandle } }, 'ch'))
+      .rejects.toMatchObject({ status: 400 });
+    expect(verifyAuthenticationResponse).not.toHaveBeenCalled();
+  });
+
+  it('rejects a credential that is not registered here', async () => {
+    DB.getPasskeyByCredentialID.mockResolvedValue(null);
+
+    await expect(AuthService.verifyAuth(undefined, { id: credId, response: {} }, 'ch'))
+      .rejects.toMatchObject({ status: 400, message: expect.stringMatching(/not registered/i) });
+  });
+
+  it('rejects a credential whose account no longer exists', async () => {
+    DB.getPasskeyByCredentialID.mockResolvedValue({
+      email: 'ghost@b.com', credentialID, publicKey: Buffer.from('pk'), counter: 0,
+    });
+    DB.getUser.mockResolvedValue(null);
+
+    await expect(AuthService.verifyAuth(undefined, { id: credId, response: {} }, 'ch'))
+      .rejects.toMatchObject({ status: 400 });
+  });
+
+  it('throws 400 when the response carries no credential ID', async () => {
+    await expect(AuthService.verifyAuth(undefined, {}, 'ch'))
+      .rejects.toMatchObject({ status: 400, message: expect.stringMatching(/credential ID/i) });
+  });
+
+  it('throws 400 for a credential ID that is not base64url', async () => {
+    await expect(AuthService.verifyAuth(undefined, { id: 'not valid!' }, 'ch'))
+      .rejects.toMatchObject({ status: 400 });
+  });
+});
+
+describe('registration requests a discoverable credential', () => {
+  it('asks for a resident key at sign-up', async () => {
+    DB.getUser.mockResolvedValue(null);
+    generateRegistrationOptions.mockResolvedValue({ challenge: 'ch' });
+
+    await AuthService.generateSignupRegOptions('a@b.com', 'Alice');
+
+    const opts = generateRegistrationOptions.mock.calls[0][0];
+    expect(opts.authenticatorSelection.residentKey).toBe('required');
+    expect(opts.authenticatorSelection.requireResidentKey).toBe(true);
+    // Shown in the authenticator's account chooser.
+    expect(opts.userDisplayName).toBe('Alice');
+  });
+
+  it('asks for a resident key when adding a passkey', async () => {
+    DB.getUser.mockResolvedValue(TEST_USER);
+    DB.getUserPasskeys.mockResolvedValue([]);
+    generateRegistrationOptions.mockResolvedValue({ challenge: 'ch' });
+
+    await AuthService.generateRegOptions('a@b.com');
+
+    const opts = generateRegistrationOptions.mock.calls[0][0];
+    expect(opts.authenticatorSelection.residentKey).toBe('required');
+    expect(opts.userDisplayName).toBe('Alice');
+  });
+});
+
+describe('decodeUserHandle', () => {
+  it('reads back the email the handle was built from', () => {
+    const handle = Buffer.from('a@b.com').toString('base64url');
+    expect(AuthService.decodeUserHandle(handle)).toBe('a@b.com');
   });
 });

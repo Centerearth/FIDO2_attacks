@@ -19,13 +19,18 @@ An AI generated summary of the rest of the project is below.
 ## Features
 
 - Register and sign in with a password
-- Register and sign in with a FIDO2 passkey
+- Register and sign in with a FIDO2 passkey, with no username needed
 - View passkeys, named after the authenticator that created them
 - Add, rename and delete passkeys
 - Reauthentication before any credential-management operation
 - Update password
 - Delete individual passkeys or the entire account
 - Cart backed by `localStorage`
+
+Passkeys are discoverable credentials, so signing in needs nothing but the
+passkey — no email, no username. Browsers that support it also offer passkeys in
+the email field's autofill menu. See
+[docs/passkey-login.md](docs/passkey-login.md).
 
 Passkeys are listed by authenticator name ("Apple Passwords", "YubiKey 5
 Series") rather than credential ID, and can be renamed. See
@@ -62,6 +67,7 @@ cp .env.example .env
 | `FRONTEND_PORT` | Vite dev server port (default `5173`) |
 | `RP_ID` | WebAuthn relying party ID — must match the hostname used in the browser (e.g. `localhost`) |
 | `ORIGIN` | Full origin used to verify WebAuthn responses (e.g. `http://localhost:5173`) |
+| `RESIDENT_KEY` | `required` (default) or `preferred`. `required` makes passkeys discoverable, which is what allows sign-in with no username |
 | `ATTESTATION` | `direct` (default) or `none`. `direct` is what lets passkeys be named after their authenticator; `none` makes the browser zero the AAGUID |
 | `REAUTH_REQUIRED` | `false` runs the study's control condition with no reauthentication. Default `true` |
 | `REAUTH_OPERATIONS` | Comma-separated subset of operations to gate. Unset means all of them |

@@ -116,16 +116,31 @@ export default function AccountPage() {
     );
   }
 
-  function handleDeletePasskey(id) {
+  function handleDeletePasskey(key) {
+    const label = key.name || 'This passkey';
     showConfirm(
       'Delete Passkey',
-      'Are you sure you want to delete this passkey?',
+      `Are you sure you want to delete ${key.name ? `"${key.name}"` : 'this passkey'}? `
+        + 'This removes it from your account here. A copy stays on your device or '
+        + 'password manager until you delete it there as well.',
       async () => {
         setPasskeyLoading(true);
         try {
           await runWithReauth('delete this passkey', async () => {
-            await deletePasskey(id);
+            await deletePasskey(key.credentialID);
             await loadPasskeys();
+            // A website cannot remove a credential from an authenticator, so the
+            // only way the leftover copy disappears is if the user deletes it
+            // where it actually lives.
+            showInfo(
+              'Passkey Deleted',
+              `${label} can no longer be used to sign in here. It is still saved in `
+                + 'your password manager or device settings, where it may keep being '
+                + 'offered at sign-in. Delete it there too: on iPhone or Mac in '
+                + 'Settings > Passwords, on Android in Google Password Manager, on '
+                + 'Windows in Settings > Accounts > Passkeys, or in whichever password '
+                + 'manager you used.'
+            );
           });
         } catch (e) {
           showInfo('Error', e.message, 'danger');
@@ -265,7 +280,7 @@ export default function AccountPage() {
                         <button
                           className="btn btn-sm btn-outline-danger"
                           disabled={passkeyLoading}
-                          onClick={() => handleDeletePasskey(key.credentialID)}
+                          onClick={() => handleDeletePasskey(key)}
                           aria-label={`Delete ${key.name || 'passkey'}`}
                         >
                           Delete
