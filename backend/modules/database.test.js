@@ -259,3 +259,97 @@ describe('deletePasskey', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+
+describe('createPasskey — authenticator details', () => {
+  it('stores the name and AAGUID alongside the credential', async () => {
+    mockInsertOne.mockResolvedValue({});
+
+    await DB.createPasskey('a@b.com', {
+      credentialID: Buffer.from('cred-id'),
+      publicKey: Buffer.from('pub-key'),
+      counter: 0,
+      transports: ['internal'],
+      name: 'Apple Passwords',
+      aaguid: 'fbfc3007-154e-4ecc-8c0b-6e020557d7bd',
+      deviceType: 'multiDevice',
+      backedUp: true,
+    });
+
+    expect(mockInsertOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Apple Passwords',
+        aaguid: 'fbfc3007-154e-4ecc-8c0b-6e020557d7bd',
+        deviceType: 'multiDevice',
+        backedUp: true,
+      })
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('renamePasskey', () => {
+  it('scopes the update to the owner and returns the match count', async () => {
+    mockUpdateOne.mockResolvedValue({ matchedCount: 1 });
+    const credBuf = Buffer.from('cred-id');
+
+    const matched = await DB.renamePasskey('a@b.com', credBuf, 'Work Key');
+
+    expect(mockUpdateOne).toHaveBeenCalledWith(
+      { email: 'a@b.com', credentialID: credBuf },
+      { $set: { name: 'Work Key' } }
+    );
+    expect(matched).toBe(1);
+  });
+
+  it('returns 0 when the passkey belongs to somebody else', async () => {
+    mockUpdateOne.mockResolvedValue({ matchedCount: 0 });
+
+    expect(await DB.renamePasskey('a@b.com', Buffer.from('x'), 'Mine')).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('deletePasskey — result', () => {
+  it('returns how many records were removed', async () => {
+    mockDeleteOne.mockResolvedValue({ deletedCount: 1 });
+
+    expect(await DB.deletePasskey('a@b.com', Buffer.from('cred-id'))).toBe(1);
+  });
+
+  it('returns 0 when nothing matched', async () => {
+    mockDeleteOne.mockResolvedValue({ deletedCount: 0 });
+
+    expect(await DB.deletePasskey('a@b.com', Buffer.from('nope'))).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('reauthentication window', () => {
+  it('records when the window closes', async () => {
+    mockUpdateOne.mockResolvedValue({});
+    const until = new Date('2030-01-01T00:00:00Z');
+
+    await DB.setReauthUntil('a@b.com', until);
+
+    expect(mockUpdateOne).toHaveBeenCalledWith(
+      { email: 'a@b.com' },
+      { $set: { reauth_until: until } }
+    );
+  });
+
+  it('removes the field when the window is closed', async () => {
+    mockUpdateOne.mockResolvedValue({});
+
+    await DB.clearReauth('a@b.com');
+
+    expect(mockUpdateOne).toHaveBeenCalledWith(
+      { email: 'a@b.com' },
+      { $unset: { reauth_until: '' } }
+    );
+  });
+});

@@ -20,20 +20,47 @@ jest.mock('../services/api', () => ({
   postAuthRequest: jest.fn(),
   getPasskeys: jest.fn(),
   deletePasskey: jest.fn(),
+  renamePasskey: jest.fn(),
   deleteAccount: jest.fn(),
   updatePassword: jest.fn(),
+  getReauthStatus: jest.fn(),
+  getReauthOptions: jest.fn(),
+  verifyReauth: jest.fn(),
+  reauthWithPassword: jest.fn(),
 }));
 
 jest.mock('@simplewebauthn/browser', () => ({
   startRegistration: jest.fn(),
+  startAuthentication: jest.fn(),
 }));
 
 const api = require('../services/api');
-const { startRegistration } = require('@simplewebauthn/browser');
+const { startRegistration, startAuthentication } = require('@simplewebauthn/browser');
+
+/** Mirrors the ApiError the real api module throws for a 403 reauth gate. */
+function reauthError(operation = 'delete-passkey') {
+  const err = new Error('Please confirm it is you before continuing.');
+  err.status = 403;
+  err.reauthRequired = true;
+  err.operation = operation;
+  return err;
+}
+
+const PASSKEY = {
+  credentialID: 'pk-1',
+  name: 'Apple Passwords',
+  transports: ['internal'],
+  created_at: new Date('2024-01-01'),
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
   api.getPasskeys.mockResolvedValue([]);
+  api.getReauthStatus.mockResolvedValue({
+    reauthenticated: false,
+    methods: { password: true, passkey: true },
+    gatedOperations: ['delete-passkey'],
+  });
 });
 
 // Wait for the useEffect → getPasskeys() → setPasskeys() cycle to settle.
@@ -56,12 +83,14 @@ describe('AccountPage — authenticated', () => {
     expect(screen.getByText(/no passkeys registered/i)).toBeInTheDocument();
   });
 
-  it('renders each passkey in the list', async () => {
+  it('renders each passkey by its authenticator name', async () => {
     api.getPasskeys.mockResolvedValue([
-      { credentialID: 'abc123', transports: ['usb'], created_at: new Date('2024-01-01') },
+      { credentialID: 'abc123', name: 'YubiKey 5 Series', transports: ['usb'], created_at: new Date('2024-01-01') },
     ]);
 
     await renderPage();
+    expect(screen.getByText('YubiKey 5 Series')).toBeInTheDocument();
+    // The raw credential ID stays visible so passkeys can be matched to logs.
     expect(screen.getByText(/abc123/)).toBeInTheDocument();
   });
 });
@@ -142,24 +171,20 @@ describe('AccountPage — delete account', () => {
 
 describe('AccountPage — delete passkey', () => {
   it('opens a confirmation modal when a passkey Delete button is clicked', async () => {
-    api.getPasskeys.mockResolvedValue([
-      { credentialID: 'pk-1', transports: ['usb'], created_at: new Date('2024-01-01') },
-    ]);
+    api.getPasskeys.mockResolvedValue([PASSKEY]);
 
     await renderPage();
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: /Delete Apple Passwords/ }));
 
     expect(screen.getByText('Delete Passkey')).toBeInTheDocument();
   });
 
   it('calls deletePasskey and reloads the list on confirm', async () => {
-    api.getPasskeys.mockResolvedValue([
-      { credentialID: 'pk-1', transports: ['usb'], created_at: new Date('2024-01-01') },
-    ]);
+    api.getPasskeys.mockResolvedValue([PASSKEY]);
     api.deletePasskey.mockResolvedValue();
 
     await renderPage();
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: /Delete Apple Passwords/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
     await waitFor(() => expect(api.deletePasskey).toHaveBeenCalledWith('pk-1'));
@@ -193,5 +218,169 @@ describe('AccountPage — add passkey', () => {
     await waitFor(() =>
       expect(screen.getByText(/Device not supported/i)).toBeInTheDocument()
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('AccountPage — rename passkey', () => {
+  it('shows an editable field pre-filled with the current name', async () => {
+    api.getPasskeys.mockResolvedValue([PASSKEY]);
+
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Rename Apple Passwords/ }));
+
+    expect(screen.getByLabelText('Passkey name')).toHaveValue('Apple Passwords');
+  });
+
+  it('saves the new name and reloads the list', async () => {
+    api.getPasskeys.mockResolvedValue([PASSKEY]);
+    api.renamePasskey.mockResolvedValue({ credentialID: 'pk-1', name: 'Work Key' });
+
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Rename Apple Passwords/ }));
+    fireEvent.change(screen.getByLabelText('Passkey name'), { target: { value: 'Work Key' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(api.renamePasskey).toHaveBeenCalledWith('pk-1', 'Work Key'));
+  });
+
+  it('refuses to save an empty name', async () => {
+    api.getPasskeys.mockResolvedValue([PASSKEY]);
+
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Rename Apple Passwords/ }));
+    fireEvent.change(screen.getByLabelText('Passkey name'), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(screen.getByText(/cannot be empty/i)).toBeInTheDocument());
+    expect(api.renamePasskey).not.toHaveBeenCalled();
+  });
+
+  it('leaves the name alone when the edit is cancelled', async () => {
+    api.getPasskeys.mockResolvedValue([PASSKEY]);
+
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Rename Apple Passwords/ }));
+    fireEvent.change(screen.getByLabelText('Passkey name'), { target: { value: 'Discarded' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(api.renamePasskey).not.toHaveBeenCalled();
+    expect(screen.getByText('Apple Passwords')).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('AccountPage — reauthentication', () => {
+  it('prompts instead of failing when the server asks for reauthentication', async () => {
+    api.getPasskeys.mockResolvedValue([PASSKEY]);
+    api.deletePasskey.mockRejectedValue(reauthError());
+
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Delete Apple Passwords/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => expect(screen.getByText("Confirm it's you")).toBeInTheDocument());
+    expect(screen.getByText(/before you delete this passkey/i)).toBeInTheDocument();
+  });
+
+  it('replays the operation once the user reauthenticates with a password', async () => {
+    api.getPasskeys.mockResolvedValue([PASSKEY]);
+    api.deletePasskey
+      .mockRejectedValueOnce(reauthError())
+      .mockResolvedValueOnce();
+    api.reauthWithPassword.mockResolvedValue({ reauthenticated: true });
+
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Delete Apple Passwords/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await waitFor(() => expect(screen.getByLabelText('Password')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret123' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm with password' }));
+
+    await waitFor(() => expect(api.deletePasskey).toHaveBeenCalledTimes(2));
+    expect(api.reauthWithPassword).toHaveBeenCalledWith('secret123');
+  });
+
+  it('replays the operation after a passkey reauthentication', async () => {
+    api.getPasskeys.mockResolvedValue([PASSKEY]);
+    api.deletePasskey
+      .mockRejectedValueOnce(reauthError())
+      .mockResolvedValueOnce();
+    api.getReauthOptions.mockResolvedValue({ challenge: 'ch' });
+    startAuthentication.mockResolvedValue({ id: 'cred' });
+    api.verifyReauth.mockResolvedValue({ reauthenticated: true });
+
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Delete Apple Passwords/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm with passkey' })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm with passkey' }));
+
+    await waitFor(() => expect(api.deletePasskey).toHaveBeenCalledTimes(2));
+  });
+
+  it('reports a failed reauthentication and does not replay the operation', async () => {
+    api.getPasskeys.mockResolvedValue([PASSKEY]);
+    api.deletePasskey.mockRejectedValue(reauthError());
+    api.reauthWithPassword.mockRejectedValue(new Error('Incorrect password.'));
+
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Delete Apple Passwords/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await waitFor(() => expect(screen.getByLabelText('Password')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'wrong' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm with password' }));
+
+    await waitFor(() => expect(screen.getByText('Incorrect password.')).toBeInTheDocument());
+    expect(api.deletePasskey).toHaveBeenCalledTimes(1);
+  });
+
+  it('only offers the methods the account has', async () => {
+    api.getPasskeys.mockResolvedValue([PASSKEY]);
+    api.deletePasskey.mockRejectedValue(reauthError());
+    api.getReauthStatus.mockResolvedValue({
+      reauthenticated: false,
+      methods: { password: false, passkey: true },
+      gatedOperations: ['delete-passkey'],
+    });
+
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Delete Apple Passwords/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm with passkey' })).toBeInTheDocument());
+    expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
+  });
+
+  it('prompts before adding a passkey and does not start the ceremony first', async () => {
+    api.postAuthRequest.mockRejectedValue(reauthError('add-passkey'));
+
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Add passkey' }));
+
+    await waitFor(() => expect(screen.getByText("Confirm it's you")).toBeInTheDocument());
+    // The browser must not be asked to create a credential that the server
+    // would then reject.
+    expect(startRegistration).not.toHaveBeenCalled();
+  });
+
+  it('abandons the operation when the prompt is cancelled', async () => {
+    api.getPasskeys.mockResolvedValue([PASSKEY]);
+    api.deletePasskey.mockRejectedValue(reauthError());
+
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Delete Apple Passwords/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await waitFor(() => expect(screen.getByText("Confirm it's you")).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Cancel' })[0]);
+
+    await waitFor(() => expect(screen.queryByText("Confirm it's you")).not.toBeInTheDocument());
+    expect(api.deletePasskey).toHaveBeenCalledTimes(1);
   });
 });

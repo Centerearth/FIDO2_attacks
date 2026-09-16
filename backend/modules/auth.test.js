@@ -17,6 +17,9 @@ jest.mock('./database.js', () => ({
   refreshUserToken: jest.fn(),
   deletePasskeys: jest.fn(),
   deletePasskey: jest.fn(),
+  renamePasskey: jest.fn(),
+  setReauthUntil: jest.fn(),
+  clearReauth: jest.fn(),
 }));
 
 jest.mock('./authService.js', () => ({
@@ -32,9 +35,17 @@ jest.mock('./authService.js', () => ({
   generateRegOptions: jest.fn(),
   verifyReg: jest.fn(),
   getPasskeys: jest.fn(),
+  renamePasskey: jest.fn(),
   deletePasskeyById: jest.fn(),
   changePassword: jest.fn(),
   deleteAccount: jest.fn(),
+  isReauthRequired: jest.fn(),
+  hasFreshReauth: jest.fn(),
+  getReauthStatus: jest.fn(),
+  generateReauthOptions: jest.fn(),
+  verifyReauth: jest.fn(),
+  verifyReauthPassword: jest.fn(),
+  consumeReauth: jest.fn(),
 }));
 
 const request = require('supertest');
@@ -75,6 +86,12 @@ function authed(req) {
 beforeEach(() => {
   jest.clearAllMocks();
   DB.getUserByToken.mockResolvedValue(TEST_USER);
+  // Default: reauthentication is in force and the user has satisfied it, so
+  // each test below exercises its own route rather than the gate. The
+  // reauthentication tests override these.
+  AuthService.isReauthRequired.mockReturnValue(true);
+  AuthService.hasFreshReauth.mockReturnValue(true);
+  AuthService.consumeReauth.mockResolvedValue();
 });
 
 // ---------------------------------------------------------------------------
@@ -394,12 +411,29 @@ describe('DELETE /auth/passkeys/:id', () => {
     expect(AuthService.deletePasskeyById).toHaveBeenCalledWith('a@b.com', 'some-id');
   });
 
-  it('returns 400 when deletion fails', async () => {
+  it('passes through the service status and message when deletion fails', async () => {
+    AuthService.deletePasskeyById.mockRejectedValue(new ServiceError('Passkey not found.', 404));
+
+    const res = await authed(request(buildSecureApp()).delete('/api/auth/passkeys/bad-id'));
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Passkey not found.');
+  });
+
+  it('returns 500 for an unexpected failure', async () => {
     AuthService.deletePasskeyById.mockRejectedValue(new Error('db error'));
 
     const res = await authed(request(buildSecureApp()).delete('/api/auth/passkeys/bad-id'));
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(500);
+  });
+
+  it('closes the reauthentication window after a successful delete', async () => {
+    AuthService.deletePasskeyById.mockResolvedValue();
+
+    await authed(request(buildSecureApp()).delete('/api/auth/passkeys/some-id'));
+
+    expect(AuthService.consumeReauth).toHaveBeenCalledWith('a@b.com');
   });
 });
 
@@ -470,5 +504,208 @@ describe('PUT /auth/password', () => {
 
     expect(res.status).toBe(204);
     expect(AuthService.changePassword).toHaveBeenCalledWith('a@b.com', 'newSecret');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /api/auth/passkeys/:id
+// ---------------------------------------------------------------------------
+
+describe('PATCH /auth/passkeys/:id', () => {
+  it('renames the passkey and returns the new name', async () => {
+    AuthService.renamePasskey.mockResolvedValue({ credentialID: 'some-id', name: 'Work Key' });
+
+    const res = await authed(
+      request(buildSecureApp()).patch('/api/auth/passkeys/some-id').send({ name: 'Work Key' })
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ credentialID: 'some-id', name: 'Work Key' });
+    expect(AuthService.renamePasskey).toHaveBeenCalledWith('a@b.com', 'some-id', 'Work Key');
+  });
+
+  it('passes through a validation failure from the service', async () => {
+    AuthService.renamePasskey.mockRejectedValue(new ServiceError('Passkey name cannot be empty.', 400));
+
+    const res = await authed(
+      request(buildSecureApp()).patch('/api/auth/passkeys/some-id').send({ name: '   ' })
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Passkey name cannot be empty.');
+  });
+
+  it('returns 404 when the passkey belongs to somebody else', async () => {
+    AuthService.renamePasskey.mockRejectedValue(new ServiceError('Passkey not found.', 404));
+
+    const res = await authed(
+      request(buildSecureApp()).patch('/api/auth/passkeys/other-id').send({ name: 'Mine' })
+    );
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Reauthentication gate
+// ---------------------------------------------------------------------------
+
+describe('reauthentication gate', () => {
+  const gated = [
+    ['post', '/api/auth/register-options', 'add-passkey'],
+    ['post', '/api/auth/register-verify', 'add-passkey'],
+    ['delete', '/api/auth/passkeys/some-id', 'delete-passkey'],
+    ['patch', '/api/auth/passkeys/some-id', 'rename-passkey'],
+    ['delete', '/api/auth/account', 'delete-account'],
+    ['put', '/api/auth/password', 'change-password'],
+  ];
+
+  it.each(gated)('blocks %s %s with 403 and reauthRequired', async (method, url, operation) => {
+    AuthService.hasFreshReauth.mockReturnValue(false);
+
+    const res = await authed(request(buildSecureApp())[method](url).send({ name: 'x', password: 'secret123' }));
+
+    expect(res.status).toBe(403);
+    expect(res.body.reauthRequired).toBe(true);
+    expect(res.body.operation).toBe(operation);
+  });
+
+  it.each(gated)('allows %s %s when the operation is not gated', async (method, url) => {
+    AuthService.isReauthRequired.mockReturnValue(false);
+    AuthService.hasFreshReauth.mockReturnValue(false);
+    AuthService.generateRegOptions.mockResolvedValue({ challenge: 'ch' });
+    AuthService.verifyReg.mockResolvedValue({ verified: true });
+    AuthService.deletePasskeyById.mockResolvedValue();
+    AuthService.renamePasskey.mockResolvedValue({ credentialID: 'some-id', name: 'x' });
+    AuthService.deleteAccount.mockResolvedValue();
+    AuthService.changePassword.mockResolvedValue();
+
+    const res = await authed(
+      request(buildSecureApp())[method](url)
+        .set('Cookie', [`token=${TEST_TOKEN}`, 'webauthn_challenge=ch'])
+        .send({ name: 'x', password: 'secret123' })
+    );
+
+    expect(res.status).not.toBe(403);
+    // The window is only consumed when the gate is actually in force.
+    expect(AuthService.consumeReauth).not.toHaveBeenCalled();
+  });
+
+  it('does not consume the window when the operation fails', async () => {
+    AuthService.deletePasskeyById.mockRejectedValue(new ServiceError('Passkey not found.', 404));
+
+    await authed(request(buildSecureApp()).delete('/api/auth/passkeys/some-id'));
+
+    expect(AuthService.consumeReauth).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Reauthentication endpoints
+// ---------------------------------------------------------------------------
+
+describe('GET /auth/reauth-status', () => {
+  it('returns the status from the service', async () => {
+    const status = {
+      reauthenticated: false,
+      expiresAt: null,
+      methods: { password: true, passkey: false },
+      gatedOperations: ['add-passkey'],
+    };
+    AuthService.getReauthStatus.mockResolvedValue(status);
+
+    const res = await authed(request(buildSecureApp()).get('/api/auth/reauth-status'));
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(status);
+  });
+});
+
+describe('POST /auth/reauth-options', () => {
+  it('returns options and sets the reauth challenge cookie', async () => {
+    AuthService.generateReauthOptions.mockResolvedValue({ challenge: 'reauth-ch' });
+
+    const res = await authed(request(buildSecureApp()).post('/api/auth/reauth-options').send({}));
+
+    expect(res.status).toBe(200);
+    expect(res.headers['set-cookie'].join(';')).toContain('webauthn_reauth_challenge=reauth-ch');
+  });
+
+  it('returns 400 when the account has no passkey', async () => {
+    AuthService.generateReauthOptions.mockRejectedValue(
+      new ServiceError('This account has no passkey to reauthenticate with.', 400)
+    );
+
+    const res = await authed(request(buildSecureApp()).post('/api/auth/reauth-options').send({}));
+
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /auth/reauth-verify', () => {
+  it('returns 400 when the challenge cookie is missing', async () => {
+    const res = await authed(request(buildSecureApp()).post('/api/auth/reauth-verify').send({ id: 'cred' }));
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/challenge/i);
+  });
+
+  it('grants reauthentication when the assertion verifies', async () => {
+    AuthService.verifyReauth.mockResolvedValue({ reauthenticated: true, expiresAt: 'later' });
+
+    const res = await request(buildSecureApp())
+      .post('/api/auth/reauth-verify')
+      .set('Cookie', [`token=${TEST_TOKEN}`, 'webauthn_reauth_challenge=reauth-ch'])
+      .send({ id: 'cred' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.reauthenticated).toBe(true);
+    expect(AuthService.verifyReauth).toHaveBeenCalledWith('a@b.com', { id: 'cred' }, 'reauth-ch');
+  });
+
+  // The reauth ceremony must not clobber an in-flight registration challenge.
+  it('reads its challenge from its own cookie, not the registration one', async () => {
+    AuthService.verifyReauth.mockResolvedValue({ reauthenticated: true });
+
+    await request(buildSecureApp())
+      .post('/api/auth/reauth-verify')
+      .set('Cookie', [
+        `token=${TEST_TOKEN}`,
+        'webauthn_challenge=registration-ch',
+        'webauthn_reauth_challenge=reauth-ch',
+      ])
+      .send({ id: 'cred' });
+
+    expect(AuthService.verifyReauth).toHaveBeenCalledWith('a@b.com', { id: 'cred' }, 'reauth-ch');
+  });
+});
+
+describe('POST /auth/reauth-password', () => {
+  it('returns 400 when no password is provided', async () => {
+    const res = await authed(request(buildSecureApp()).post('/api/auth/reauth-password').send({}));
+
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 401 when the password is wrong', async () => {
+    AuthService.verifyReauthPassword.mockRejectedValue(new ServiceError('Incorrect password.', 401));
+
+    const res = await authed(
+      request(buildSecureApp()).post('/api/auth/reauth-password').send({ password: 'nope' })
+    );
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Incorrect password.');
+  });
+
+  it('grants reauthentication for the correct password', async () => {
+    AuthService.verifyReauthPassword.mockResolvedValue({ reauthenticated: true, expiresAt: 'later' });
+
+    const res = await authed(
+      request(buildSecureApp()).post('/api/auth/reauth-password').send({ password: 'secret123' })
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.reauthenticated).toBe(true);
   });
 });

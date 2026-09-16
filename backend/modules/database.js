@@ -1,4 +1,5 @@
 const { MongoClient } = require('mongodb');
+const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const logger = require('./logger.js');
 
@@ -21,11 +22,14 @@ function getUserByToken(token) {
   return userCollection.findOne({ token: String(token) });
 }
 
-async function createUser(name, email) {
+async function createUser(name, email, password) {
   logger.debug({ email }, 'DB createUser');
+  const passwordHash = password ? await bcrypt.hash(password, 10) : null;
+
   const user = {
     name: name,
     email: email,
+    password: passwordHash,
     token: crypto.randomUUID(),
   };
   await userCollection.insertOne(user);
@@ -37,6 +41,10 @@ async function createPasskey(email, passkeyInfo) {
   logger.debug({ email }, 'DB createPasskey');
   const passkey = {
     email: email,
+    name: passkeyInfo.name,
+    aaguid: passkeyInfo.aaguid,
+    deviceType: passkeyInfo.deviceType,
+    backedUp: passkeyInfo.backedUp,
     credentialID: passkeyInfo.credentialID,
     publicKey: passkeyInfo.publicKey,
     counter: passkeyInfo.counter,
@@ -65,6 +73,20 @@ async function updatePasskeyCounter(credentialID, newCounter) {
   );
 }
 
+/**
+ * Renames one of a user's passkeys.
+ * @returns {Promise<number>} how many records matched — 0 means the passkey
+ *   does not exist or belongs to somebody else.
+ */
+async function renamePasskey(email, credentialIDBuffer, name) {
+  logger.debug({ email }, 'DB renamePasskey');
+  const result = await passkeyCollection.updateOne(
+    { email: String(email), credentialID: credentialIDBuffer },
+    { $set: { name: name } }
+  );
+  return result.matchedCount;
+}
+
 async function deleteUser(email) {
   logger.debug({ email }, 'DB deleteUser');
   await deletePasskeys(email);
@@ -76,12 +98,27 @@ async function deletePasskeys(email) {
   return passkeyCollection.deleteMany({ email: String(email) });
 }
 
+/**
+ * Deletes one of a user's passkeys.
+ * @returns {Promise<number>} how many records were removed — 0 means the
+ *   passkey does not exist or belongs to somebody else.
+ */
 async function deletePasskey(email, credentialIDBuffer) {
   logger.debug({ email }, 'DB deletePasskey');
-  return passkeyCollection.deleteOne({
+  const result = await passkeyCollection.deleteOne({
     email: String(email),
     credentialID: credentialIDBuffer
   });
+  return result.deletedCount;
+}
+
+async function updateUserPassword(email, newPassword) {
+  logger.debug({ email }, 'DB updateUserPassword');
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await userCollection.updateOne(
+    { email: String(email) },
+    { $set: { password: passwordHash } }
+  );
 }
 
 async function refreshUserToken(email) {
@@ -94,6 +131,29 @@ async function refreshUserToken(email) {
   return newToken;
 }
 
+/**
+ * Records that the user just proved who they are, opening the reauthentication
+ * window that sensitive operations require.
+ * @param {string} email
+ * @param {Date} until - when the window closes.
+ */
+async function setReauthUntil(email, until) {
+  logger.debug({ email, until }, 'DB setReauthUntil');
+  await userCollection.updateOne(
+    { email: String(email) },
+    { $set: { reauth_until: until } }
+  );
+}
+
+/** Closes the reauthentication window, e.g. after a sensitive operation. */
+async function clearReauth(email) {
+  logger.debug({ email }, 'DB clearReauth');
+  await userCollection.updateOne(
+    { email: String(email) },
+    { $unset: { reauth_until: '' } }
+  );
+}
+
 module.exports = {
   init,
   getUser,
@@ -104,7 +164,11 @@ module.exports = {
   getPasskey,
   getUserPasskeys,
   updatePasskeyCounter,
+  renamePasskey,
+  updateUserPassword,
   refreshUserToken,
   deletePasskeys,
-  deletePasskey
+  deletePasskey,
+  setReauthUntil,
+  clearReauth
 };

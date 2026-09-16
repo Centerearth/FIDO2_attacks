@@ -15,6 +15,9 @@ jest.mock('./database.js', () => ({
   refreshUserToken: jest.fn(),
   deletePasskeys: jest.fn(),
   deletePasskey: jest.fn(),
+  renamePasskey: jest.fn(),
+  setReauthUntil: jest.fn(),
+  clearReauth: jest.fn(),
 }));
 
 jest.mock('@simplewebauthn/server');
@@ -57,7 +60,7 @@ describe('createUser', () => {
   it('throws 409 when the user already exists', async () => {
     DB.getUser.mockResolvedValue(TEST_USER);
 
-    await expect(AuthService.createUser('Alice', 'a@b.com', 'pw'))
+    await expect(AuthService.createUser('Alice', 'a@b.com', 'longenough'))
       .rejects.toMatchObject({ status: 409, message: 'Existing user' });
   });
 
@@ -65,10 +68,23 @@ describe('createUser', () => {
     DB.getUser.mockResolvedValue(null);
     DB.createUser.mockResolvedValue(TEST_USER);
 
-    const user = await AuthService.createUser('Alice', 'a@b.com', 'pw');
+    const user = await AuthService.createUser('Alice', 'a@b.com', 'longenough');
 
-    expect(DB.createUser).toHaveBeenCalledWith('Alice', 'a@b.com', 'pw');
+    expect(DB.createUser).toHaveBeenCalledWith('Alice', 'a@b.com', 'longenough');
     expect(user).toBe(TEST_USER);
+  });
+
+  // The browser used to be the only thing enforcing this, so a direct API call
+  // could create an account with a one-character password.
+  it('throws 400 for a password shorter than 8 characters', async () => {
+    await expect(AuthService.createUser('Alice', 'a@b.com', 'short'))
+      .rejects.toMatchObject({ status: 400 });
+    expect(DB.createUser).not.toHaveBeenCalled();
+  });
+
+  it('throws 400 when no password is given', async () => {
+    await expect(AuthService.createUser('Alice', 'a@b.com', ''))
+      .rejects.toMatchObject({ status: 400 });
   });
 });
 
@@ -327,7 +343,8 @@ describe('verifyReg', () => {
     );
 
     expect(DB.createPasskey).toHaveBeenCalledWith('a@b.com', expect.objectContaining({ counter: 1 }));
-    expect(result).toEqual({ verified: true });
+    // With no AAGUID the name falls back to the transport the browser reported.
+    expect(result).toEqual({ verified: true, name: 'This Device' });
   });
 });
 
@@ -357,9 +374,17 @@ describe('getPasskeys', () => {
 // ---------------------------------------------------------------------------
 
 describe('deletePasskeyById', () => {
+  const id = Buffer.from('cred').toString('base64url');
+
+  /** An account that still has another way in, so deleting is allowed. */
+  function accountWithSpareCredential() {
+    DB.getUser.mockResolvedValue(TEST_USER); // has a password
+    DB.getUserPasskeys.mockResolvedValue([{ credentialID: Buffer.from('cred') }]);
+  }
+
   it('decodes the id and calls DB.deletePasskey', async () => {
-    DB.deletePasskey.mockResolvedValue();
-    const id = Buffer.from('cred').toString('base64url');
+    accountWithSpareCredential();
+    DB.deletePasskey.mockResolvedValue(1);
 
     await AuthService.deletePasskeyById('a@b.com', id);
 
@@ -367,6 +392,50 @@ describe('deletePasskeyById', () => {
       'a@b.com',
       Buffer.from(id, 'base64url')
     );
+  });
+
+  it('throws 404 when the passkey is not the user\'s', async () => {
+    accountWithSpareCredential();
+    DB.deletePasskey.mockResolvedValue(0);
+
+    await expect(AuthService.deletePasskeyById('a@b.com', 'Y3JlZA'))
+      .rejects.toMatchObject({ status: 404 });
+  });
+
+  // Without this guard a passkey-only user can delete their only passkey and
+  // then neither sign in nor reauthenticate to add a replacement.
+  it('refuses to delete the last passkey of a passkey-only account', async () => {
+    DB.getUser.mockResolvedValue({ ...TEST_USER, password: null });
+    DB.getUserPasskeys.mockResolvedValue([{ credentialID: Buffer.from('cred') }]);
+
+    await expect(AuthService.deletePasskeyById('a@b.com', id))
+      .rejects.toMatchObject({ status: 400, message: expect.stringMatching(/only way to sign in/i) });
+    expect(DB.deletePasskey).not.toHaveBeenCalled();
+  });
+
+  it('allows deleting the last passkey when the account has a password', async () => {
+    DB.getUser.mockResolvedValue(TEST_USER);
+    DB.getUserPasskeys.mockResolvedValue([{ credentialID: Buffer.from('cred') }]);
+    DB.deletePasskey.mockResolvedValue(1);
+
+    await expect(AuthService.deletePasskeyById('a@b.com', id)).resolves.toBeUndefined();
+  });
+
+  it('allows a passkey-only account to delete one of several passkeys', async () => {
+    DB.getUser.mockResolvedValue({ ...TEST_USER, password: null });
+    DB.getUserPasskeys.mockResolvedValue([
+      { credentialID: Buffer.from('cred') },
+      { credentialID: Buffer.from('cred2') },
+    ]);
+    DB.deletePasskey.mockResolvedValue(1);
+
+    await expect(AuthService.deletePasskeyById('a@b.com', id)).resolves.toBeUndefined();
+  });
+
+  it('throws 400 for an id that is not base64url', async () => {
+    await expect(AuthService.deletePasskeyById('a@b.com', 'not valid!'))
+      .rejects.toMatchObject({ status: 400 });
+    expect(DB.deletePasskey).not.toHaveBeenCalled();
   });
 });
 
@@ -378,9 +447,15 @@ describe('changePassword', () => {
   it('delegates to DB.updateUserPassword', async () => {
     DB.updateUserPassword.mockResolvedValue();
 
-    await AuthService.changePassword('a@b.com', 'newPw');
+    await AuthService.changePassword('a@b.com', 'newPassword1');
 
-    expect(DB.updateUserPassword).toHaveBeenCalledWith('a@b.com', 'newPw');
+    expect(DB.updateUserPassword).toHaveBeenCalledWith('a@b.com', 'newPassword1');
+  });
+
+  it('throws 400 for a password shorter than 8 characters', async () => {
+    await expect(AuthService.changePassword('a@b.com', 'newPw'))
+      .rejects.toMatchObject({ status: 400 });
+    expect(DB.updateUserPassword).not.toHaveBeenCalled();
   });
 });
 
@@ -395,5 +470,252 @@ describe('deleteAccount', () => {
     await AuthService.deleteAccount('a@b.com');
 
     expect(DB.deleteUser).toHaveBeenCalledWith('a@b.com');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// renamePasskey
+// ---------------------------------------------------------------------------
+
+describe('renamePasskey', () => {
+  const id = Buffer.from('cred').toString('base64url');
+
+  it('trims the name and stores it', async () => {
+    DB.renamePasskey.mockResolvedValue(1);
+
+    const result = await AuthService.renamePasskey('a@b.com', id, '  Work   Key  ');
+
+    expect(DB.renamePasskey).toHaveBeenCalledWith('a@b.com', Buffer.from(id, 'base64url'), 'Work Key');
+    expect(result).toEqual({ credentialID: id, name: 'Work Key' });
+  });
+
+  it('throws 400 for an empty name', async () => {
+    await expect(AuthService.renamePasskey('a@b.com', id, '   '))
+      .rejects.toMatchObject({ status: 400 });
+    expect(DB.renamePasskey).not.toHaveBeenCalled();
+  });
+
+  it('throws 400 for a name longer than 64 characters', async () => {
+    await expect(AuthService.renamePasskey('a@b.com', id, 'x'.repeat(65)))
+      .rejects.toMatchObject({ status: 400 });
+  });
+
+  it('throws 400 when the name is not a string', async () => {
+    await expect(AuthService.renamePasskey('a@b.com', id, { evil: true }))
+      .rejects.toMatchObject({ status: 400 });
+  });
+
+  // A user must not be able to rename somebody else's passkey by guessing an id.
+  it('throws 404 when no passkey of the user matches', async () => {
+    DB.renamePasskey.mockResolvedValue(0);
+
+    await expect(AuthService.renamePasskey('a@b.com', id, 'Mine'))
+      .rejects.toMatchObject({ status: 404 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Authenticator naming
+// ---------------------------------------------------------------------------
+
+describe('passkey naming', () => {
+  it('names a new passkey after its authenticator model', async () => {
+    verifyRegistrationResponse.mockResolvedValue({
+      verified: true,
+      registrationInfo: {
+        // Apple's AAGUID, present when attestation is requested.
+        aaguid: 'fbfc3007-154e-4ecc-8c0b-6e020557d7bd',
+        credential: { publicKey: new Uint8Array([1]), id: 'Y3JlZA', counter: 0 },
+        credentialDeviceType: 'multiDevice',
+        credentialBackedUp: true,
+      },
+    });
+    DB.getUserPasskeys.mockResolvedValue([]);
+    DB.createPasskey.mockResolvedValue();
+
+    const result = await AuthService.verifyReg({ response: { transports: ['internal'] } }, 'ch', 'a@b.com');
+
+    expect(result.name).toBe('Apple Passwords');
+    expect(DB.createPasskey).toHaveBeenCalledWith(
+      'a@b.com',
+      expect.objectContaining({ name: 'Apple Passwords', aaguid: 'fbfc3007-154e-4ecc-8c0b-6e020557d7bd' })
+    );
+  });
+
+  it('numbers a second passkey of the same model', async () => {
+    verifyRegistrationResponse.mockResolvedValue({
+      verified: true,
+      registrationInfo: {
+        aaguid: 'fbfc3007-154e-4ecc-8c0b-6e020557d7bd',
+        credential: { publicKey: new Uint8Array([1]), id: 'Y3JlZA', counter: 0 },
+        credentialDeviceType: 'multiDevice',
+      },
+    });
+    DB.getUserPasskeys.mockResolvedValue([{ name: 'Apple Passwords' }]);
+    DB.createPasskey.mockResolvedValue();
+
+    const result = await AuthService.verifyReg({ response: {} }, 'ch', 'a@b.com');
+
+    expect(result.name).toBe('Apple Passwords (2)');
+  });
+
+  // With ATTESTATION=none the browser zeroes the AAGUID, so naming has to
+  // degrade to something readable rather than showing an empty label.
+  it('falls back to the transport when the AAGUID is zeroed', async () => {
+    verifyRegistrationResponse.mockResolvedValue({
+      verified: true,
+      registrationInfo: {
+        aaguid: '00000000-0000-0000-0000-000000000000',
+        credential: { publicKey: new Uint8Array([1]), id: 'Y3JlZA', counter: 0 },
+        credentialDeviceType: 'singleDevice',
+      },
+    });
+    DB.getUserPasskeys.mockResolvedValue([]);
+    DB.createPasskey.mockResolvedValue();
+
+    const result = await AuthService.verifyReg({ response: { transports: ['usb'] } }, 'ch', 'a@b.com');
+
+    expect(result.name).toBe('USB Security Key');
+  });
+
+  it('gives passkeys registered before naming existed a readable name', async () => {
+    DB.getUserPasskeys.mockResolvedValue([
+      { credentialID: Buffer.from('cred'), transports: ['nfc'], created_at: new Date() },
+    ]);
+
+    const [passkey] = await AuthService.getPasskeys('a@b.com');
+
+    expect(passkey.name).toBe('NFC Security Key');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Reauthentication
+// ---------------------------------------------------------------------------
+
+describe('hasFreshReauth', () => {
+  it('is false for a user who has never reauthenticated', () => {
+    expect(AuthService.hasFreshReauth({ email: 'a@b.com' })).toBe(false);
+  });
+
+  it('is false once the window has passed', () => {
+    expect(AuthService.hasFreshReauth({ reauth_until: new Date(Date.now() - 1000) })).toBe(false);
+  });
+
+  it('is true inside the window', () => {
+    expect(AuthService.hasFreshReauth({ reauth_until: new Date(Date.now() + 60000) })).toBe(true);
+  });
+
+  it('is false for a null user', () => {
+    expect(AuthService.hasFreshReauth(null)).toBe(false);
+  });
+});
+
+describe('getReauthStatus', () => {
+  it('reports the methods the account can actually use', async () => {
+    DB.getUserPasskeys.mockResolvedValue([{ credentialID: Buffer.from('cred') }]);
+
+    const status = await AuthService.getReauthStatus({ email: 'a@b.com', password: 'hashed' });
+
+    expect(status.methods).toEqual({ password: true, passkey: true });
+    expect(status.reauthenticated).toBe(false);
+  });
+
+  it('offers only passkey for an account with no password', async () => {
+    DB.getUserPasskeys.mockResolvedValue([{ credentialID: Buffer.from('cred') }]);
+
+    const status = await AuthService.getReauthStatus({ email: 'a@b.com', password: null });
+
+    expect(status.methods).toEqual({ password: false, passkey: true });
+  });
+
+  it('offers only password for an account with no passkey yet', async () => {
+    DB.getUserPasskeys.mockResolvedValue([]);
+
+    const status = await AuthService.getReauthStatus({ email: 'a@b.com', password: 'hashed' });
+
+    expect(status.methods).toEqual({ password: true, passkey: false });
+  });
+});
+
+describe('verifyReauthPassword', () => {
+  it('opens the window for the correct password', async () => {
+    DB.getUser.mockResolvedValue(TEST_USER);
+    bcrypt.compare.mockResolvedValue(true);
+    DB.setReauthUntil.mockResolvedValue();
+
+    const result = await AuthService.verifyReauthPassword('a@b.com', 'correct');
+
+    expect(result.reauthenticated).toBe(true);
+    expect(DB.setReauthUntil).toHaveBeenCalledWith('a@b.com', expect.any(Date));
+  });
+
+  it('throws 401 for the wrong password and opens no window', async () => {
+    DB.getUser.mockResolvedValue(TEST_USER);
+    bcrypt.compare.mockResolvedValue(false);
+
+    await expect(AuthService.verifyReauthPassword('a@b.com', 'wrong'))
+      .rejects.toMatchObject({ status: 401 });
+    expect(DB.setReauthUntil).not.toHaveBeenCalled();
+  });
+
+  it('throws 400 for an account with no password', async () => {
+    DB.getUser.mockResolvedValue({ ...TEST_USER, password: null });
+
+    await expect(AuthService.verifyReauthPassword('a@b.com', 'anything'))
+      .rejects.toMatchObject({ status: 400 });
+  });
+});
+
+describe('verifyReauth', () => {
+  const credentialID = Buffer.from('cred');
+  const credentialIDBase64url = credentialID.toString('base64url');
+
+  it('opens the window without rotating the session token', async () => {
+    DB.getUser.mockResolvedValue(TEST_USER);
+    DB.getUserPasskeys.mockResolvedValue([{ credentialID, publicKey: Buffer.from('pk'), counter: 0 }]);
+    verifyAuthenticationResponse.mockResolvedValue({
+      verified: true,
+      authenticationInfo: { newCounter: 1 },
+    });
+    DB.updatePasskeyCounter.mockResolvedValue();
+    DB.setReauthUntil.mockResolvedValue();
+
+    const result = await AuthService.verifyReauth('a@b.com', { id: credentialIDBase64url }, 'ch');
+
+    expect(result.reauthenticated).toBe(true);
+    // Rotating the token here would invalidate the signed-in session's cookie.
+    expect(DB.refreshUserToken).not.toHaveBeenCalled();
+  });
+
+  it('opens no window when the assertion does not verify', async () => {
+    DB.getUser.mockResolvedValue(TEST_USER);
+    DB.getUserPasskeys.mockResolvedValue([{ credentialID, publicKey: Buffer.from('pk'), counter: 0 }]);
+    verifyAuthenticationResponse.mockRejectedValue(new Error('bad signature'));
+
+    await expect(AuthService.verifyReauth('a@b.com', { id: credentialIDBase64url }, 'ch'))
+      .rejects.toMatchObject({ status: 400 });
+    expect(DB.setReauthUntil).not.toHaveBeenCalled();
+  });
+});
+
+describe('generateReauthOptions', () => {
+  it('throws 400 when the account has no passkey', async () => {
+    DB.getUserPasskeys.mockResolvedValue([]);
+
+    await expect(AuthService.generateReauthOptions('a@b.com'))
+      .rejects.toMatchObject({ status: 400 });
+  });
+});
+
+describe('isReauthRequired', () => {
+  it('gates every sensitive operation by default', () => {
+    for (const operation of AuthService.REAUTH_OPERATIONS) {
+      expect(AuthService.isReauthRequired(operation)).toBe(true);
+    }
+  });
+
+  it('does not gate an unknown operation', () => {
+    expect(AuthService.isReauthRequired('browse-catalogue')).toBe(false);
   });
 });
